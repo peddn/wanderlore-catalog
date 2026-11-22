@@ -1,0 +1,122 @@
+# Sources of the Wanderlore catalogue.
+#
+# Nothing listed here is copied into this repository. scripts/setup.sh
+# fetches each source at exactly the commit given here into .dev/.
+#
+# role:    game    = the game the catalogue world runs on
+#          library = needed by other sources, shows nothing itself
+#          content = brings creatures that the catalogue shows
+# mod:     the technical name of the mod, as Luanti loads it
+# prefix:  the letter in front of the catalogue numbers of this source
+# license: as stated by the source, checked on 2026-11-22
+
+[minetest_game]
+title = "Minetest Game"
+role = "game"
+repo = "https://github.com/luanti-org/minetest_game"
+commit = "9e895af6e9feb98332fa1a778001442f5669bc20"
+license = "LGPL-2.1-or-later (code), CC-BY-SA-3.0 and others (media)"
+
+[mobs]
+title = "Mobs Redo"
+role = "library"
+mod = "mobs"
+repo = "https://codeberg.org/tenplus1/mobs_redo"
+commit = "eec7c56bfec64c70a083fce8a1e5944f066cd296"
+license = "MIT"
+
+[mobkit]
+title = "Mobkit"
+role = "library"
+mod = "mobkit"
+repo = "https://github.com/TheTermos/mobkit"
+commit = "ddea141b081e087900a6acc5a2a90e8d4e564295"
+license = "MIT"
+
+[creatura]
+title = "Creatura"
+role = "library"
+mod = "creatura"
+repo = "https://github.com/ElCeejo/creatura"
+commit = "4eb507cf2433f0787691f560842deea79a1666f4"
+license = "MIT"
+
+[mob_core]
+title = "Mob Core"
+role = "library"
+mod = "mob_core"
+repo = "https://github.com/ElCeejo/mob_core"
+commit = "3ed7338317e1b0ef00cd6eefd4c694377c12e475"
+license = "GPL-3.0"
+
+[mobs_monster]
+title = "Mobs Monster"
+role = "content"
+mod = "mobs_monster"
+prefix = "M"
+repo = "https://codeberg.org/tenplus1/mobs_monster"
+commit = "18f93e7d9ea4e40235f4883d6423d2dcbdd8a719"
+license = "MIT (code), mostly CC0 (media), see license.txt"
+
+[mobs_animal]
+title = "Mobs Animal"
+role = "content"
+mod = "mobs_animal"
+prefix = "A"
+repo = "https://codeberg.org/tenplus1/mobs_animal"
+commit = "49a43c85af09035485bc4dc18198b9d40562d2fb"
+license = "MIT (code), various (media), see license.txt"
+
+[nssm]
+title = "Not So Simple Mobs"
+role = "content"
+mod = "nssm"
+prefix = "N"
+repo = "https://github.com/NPXcoot/nssm"
+commit = "b028d895726f3c9461d3e517376b86ea5fb2ea08"
+license = "LGPL (code), CC-BY-SA-4.0 (media)"
+
+[dmobs]
+title = "dmobs"
+role = "content"
+mod = "dmobs"
+prefix = "D"
+repo = "https://github.com/D00Med/dmobs"
+commit = "3b9dd0d69d8176145742aa3ffec00fa58c28db31"
+license = "LGPL-2.1-or-later (code), CC-BY-SA-3.0 (media)"
+
+[goblins]
+title = "Goblins"
+role = "content"
+mod = "goblins"
+prefix = "G"
+repo = "https://github.com/FreeLikeGNU/goblins"
+commit = "dd0333aa745527ce72d19a3f08dbfec72908c172"
+license = "CC-BY-SA-3.0 (media), see README.md"
+
+[draconis]
+title = "Draconis"
+role = "content"
+mod = "draconis"
+prefix = "R"
+repo = "https://github.com/ElCeejo/draconis"
+commit = "5ad66e400ec31aa8c6ca33e8a8c2510b6fa5d6fd"
+license = "MIT"
+
+[animalia]
+title = "Animalia"
+role = "content"
+mod = "animalia"
+prefix = "L"
+repo = "https://github.com/ElCeejo/animalia"
+commit = "5895f403fd43a9464e06b3675af3495f50565a3f"
+license = "MIT"
+
+[paleotest]
+title = "Paleotest"
+role = "content"
+mod = "paleotest"
+prefix = "P"
+repo = "https://github.com/ElCeejo/paleotest"
+commit = "7f3c5fae2b558a0c1115df88870234be8503561d"
+license = "GPL-3.0 for everything, no separate media licence"
