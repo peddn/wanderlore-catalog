@@ -6,8 +6,12 @@
 # role:    game    = the game the catalogue world runs on
 #          library = needed by other sources, shows nothing itself
 #          content = brings creatures that the catalogue shows
-# mod:     the technical name of the mod, as Luanti loads it
-# prefix:  the letter in front of the catalogue numbers of this source
+# set:     "plants" for the world of trees and plants, "both" for a
+#          library both worlds need; without it the source belongs to the
+#          creatures
+# mod:     the technical name of the mod, as Luanti loads it; a modpack
+#          needs none, its mods are found
+# prefix:  the letters in front of the catalogue numbers of this source
 # license: as stated by the source, checked on 2026-11-22
 
 [minetest_game]
@@ -16,10 +20,13 @@ role = "game"
 repo = "https://github.com/luanti-org/minetest_game"
 commit = "9e895af6e9feb98332fa1a778001442f5669bc20"
 license = "LGPL-2.1-or-later (code), CC-BY-SA-3.0 and others (media)"
+prefix = "MG"
+plant_mods = "default flowers"
 
 [mobs]
 title = "Mobs Redo"
 role = "library"
+set = "both"
 mod = "mobs"
 repo = "https://codeberg.org/tenplus1/mobs_redo"
 commit = "eec7c56bfec64c70a083fce8a1e5944f066cd296"
@@ -120,3 +127,292 @@ prefix = "P"
 repo = "https://github.com/ElCeejo/paleotest"
 commit = "7f3c5fae2b558a0c1115df88870234be8503561d"
 license = "GPL-3.0 for everything, no separate media licence"
+
+# Trees and plants. Licences as stated on ContentDB on 2026-11-23; single
+# files can differ and are to be checked before anything is taken over.
+
+[xcompat]
+title = "XCompat"
+role = "library"
+set = "plants"
+mod = "xcompat"
+repo = "https://github.com/mt-mods/xcompat"
+commit = "758684dac8875d06d8c1565e323ee52c9d4daf7f"
+license = "MIT"
+
+[biome_lib]
+title = "Biome Lib"
+role = "library"
+set = "plants"
+mod = "biome_lib"
+repo = "https://github.com/mt-mods/biome_lib"
+commit = "95845dfb0886dbda10e7afd9f03b8926f7123fd3"
+license = "LGPL-3.0-only"
+
+[moretrees]
+title = "More Trees"
+role = "content"
+set = "plants"
+mod = "moretrees"
+prefix = "MT"
+repo = "https://github.com/mt-mods/moretrees"
+commit = "79ea6f7ce71ec7260a81c772df98fb2059673441"
+license = "LGPL-3.0-only (code), CC-BY-SA-4.0 (media)"
+
+[plantlife_modpack]
+title = "Plantlife"
+role = "content"
+set = "plants"
+prefix = "PL"
+repo = "https://github.com/mt-mods/plantlife_modpack"
+commit = "aaa51d0690f13e2f31e771de3260bbfbf0e8c851"
+license = "LGPL-3.0-only (code), CC-BY-SA-4.0 (media)"
+
+[ebiomes]
+title = "Extra Biomes"
+role = "content"
+set = "plants"
+mod = "ebiomes"
+prefix = "EB"
+repo = "https://github.com/CowboyLva/ebiomes"
+commit = "67623c25b5449c0f821fde70211ba2f88aa9e724"
+license = "GPL-3.0-or-later (code), CC-BY-SA-3.0 (media)"
+
+[ethereal]
+title = "Ethereal NG"
+role = "content"
+set = "plants"
+mod = "ethereal"
+prefix = "ET"
+repo = "https://codeberg.org/tenplus1/ethereal"
+commit = "ce99cf3f663448464ea6a0344db555c6db2fad19"
+license = "MIT (code), CC-BY-SA-3.0 (media)"
+
+[everness]
+title = "Everness"
+role = "content"
+set = "plants"
+mod = "everness"
+prefix = "EV"
+repo = "https://bitbucket.org/minetest_gamers/everness"
+commit = "7f6ce113c286f7c19b8f0e85ecee144b17235b38"
+license = "LGPL-2.1-or-later (code), CC-BY-SA-4.0 (media)"
+
+[naturalbiomes]
+title = "Wilhelmines Natural Biomes"
+role = "content"
+set = "plants"
+mod = "naturalbiomes"
+prefix = "NB"
+repo = "https://github.com/Skandarella/naturalbiomes"
+commit = "dab93ab289aff0f518b3d49538922dca244aa29a"
+license = "MIT (code), MIT (media)"
+
+[livingjungle]
+title = "Wilhelmines Living Jungle"
+role = "content"
+set = "plants"
+mod = "livingjungle"
+prefix = "LJ"
+repo = "https://github.com/mt-mods/livingjungle"
+commit = "52f35eda034151fc173b00985a81fbee7fa8714d"
+license = "MIT (code), MIT (media)"
+
+[livingdesert]
+title = "Wilhelmines Living Desert"
+role = "content"
+set = "plants"
+mod = "livingdesert"
+prefix = "LD"
+repo = "https://github.com/Skandarella/livingdesert"
+commit = "7e2c1d6f6283c42b2ddd9994a93eb57d032f5979"
+license = "MIT (code), MIT (media)"
+
+[livingfloatlands]
+title = "Wilhelmines Living Floatlands"
+role = "content"
+set = "plants"
+mod = "livingfloatlands"
+prefix = "LF"
+repo = "https://github.com/Skandarella/livingfloatlands"
+commit = "411a5acf3196d6d5f39da92ece450c70ed076dac"
+license = "MIT (code), MIT (media)"
+
+[australia]
+title = "Australia"
+role = "content"
+set = "plants"
+mod = "australia"
+prefix = "AU"
+repo = "https://github.com/vlapsley/australia"
+commit = "8dbb7acebf5bad89768ab0f6a6c76b71a1cf075f"
+license = "AGPL-2.0-only (code), AGPL-2.0-only (media)"
+
+[aotearoa]
+title = "Aotearoa"
+role = "content"
+set = "plants"
+mod = "aotearoa"
+prefix = "AO"
+repo = "https://github.com/DokimiCU/aotearoa"
+commit = "6d130cd7352795818feed6293ec0998f5747c2d2"
+license = "see README.md of the source"
+
+[terraria]
+title = "Better Biomes"
+role = "content"
+set = "plants"
+mod = "terraria"
+prefix = "BB"
+repo = "https://github.com/Neuromancer56/terraria"
+commit = "7c9480e7f8f52cc3dd0124aba5a07cd8b6e3bc63"
+license = "LGPL-2.1-or-later (code), CC-BY-3.0 (media)"
+
+[swamp]
+title = "Swamp Biome"
+role = "content"
+set = "plants"
+mod = "swamp"
+prefix = "SW"
+repo = "https://github.com/smnoe01/Swamp"
+commit = "278bec1a32be32e49e471aeab1b0e8318443ff4b"
+license = "LGPL-2.1-or-later (code), CC-BY-SA-3.0 (media)"
+
+[riesenpilz]
+title = "Giant Mushrooms"
+role = "content"
+set = "plants"
+mod = "riesenpilz"
+prefix = "RP"
+repo = "https://codeberg.org/HybridDog/riesenpilz"
+commit = "27049d99d0fdb94776b820c76e59d486dafa9f35"
+license = "MIT (code), CC-BY-3.0 (media)"
+
+[sumpf]
+title = "Swamps"
+role = "content"
+set = "plants"
+prefix = "SU"
+repo = "https://codeberg.org/HybridDog/sumpf"
+commit = "ee317f99e7422827c00553a74b6a3e25f6568384"
+license = "MIT (code), CC-BY-3.0 (media)"
+
+[sunset_biomes]
+title = "Sunset Biomes"
+role = "content"
+set = "plants"
+mod = "sunset_biomes"
+prefix = "SB"
+repo = "https://github.com/RisingLeaf/sunset_biomes"
+commit = "8f0a06e2aaebed7a58ff3fde7794138ada746bf4"
+license = "CC-BY-SA-4.0 (code), CC-BY-SA-4.0 (media)"
+
+[kor_fruit_trees]
+title = "Fruit Trees"
+role = "content"
+set = "plants"
+mod = "kor_fruit_trees"
+prefix = "FT"
+repo = "https://github.com/korinrider/kor_fruit_trees"
+commit = "744be0235a0998685c00c94a4d5f27eb422fd891"
+license = "MIT (code), MIT (media)"
+
+[maple]
+title = "Maple Tree"
+role = "content"
+set = "plants"
+mod = "maple"
+prefix = "MA"
+repo = "https://codeberg.org/Dacmot/maple"
+commit = "97a4f2bee565ac590dcf4103729ea527c407be6d"
+license = "MIT (code), CC0-1.0 (media)"
+
+[coconut_tree]
+title = "Coconut Trees"
+role = "content"
+set = "plants"
+mod = "coconut_tree"
+prefix = "CO"
+repo = "https://github.com/Neuromancer56/coconut_tree"
+commit = "6060d4873d8df91a5b80b65e82debdc10e8bbfaa"
+license = "LGPL-3.0-only (code), CC-BY-SA-4.0 (media)"
+
+[x_farming]
+title = "X Farming"
+role = "content"
+set = "plants"
+mod = "x_farming"
+prefix = "XF"
+repo = "https://bitbucket.org/minetest_gamers/x_farming"
+commit = "7f27fa87c8770c0ab81e73623ef72769eac026b3"
+license = "LGPL-2.1-or-later (code), CC-BY-SA-4.0 (media)"
+
+[beautiflowers]
+title = "Beautiful Flowers"
+role = "content"
+set = "plants"
+mod = "beautiflowers"
+prefix = "BF"
+repo = "https://github.com/minefaco/beautiflowers"
+commit = "0ba16decb68b41208e51347a36687455afdc4848"
+license = "LGPL-3.0-only (code), CC0-1.0 (media)"
+
+[herbs]
+title = "Herbs"
+role = "content"
+set = "plants"
+mod = "herbs"
+prefix = "HB"
+repo = "https://github.com/acmgit/herbs"
+commit = "600823f29e931014bffe5106570f686d090d1ff5"
+license = "GPL-3.0-only (code), CC-BY-3.0 (media)"
+
+[elysflowers]
+title = "Elysflowers"
+role = "content"
+set = "plants"
+mod = "elysflowers"
+prefix = "EF"
+repo = "https://github.com/blrbrb/elysflowers"
+commit = "869be74b57e7eedbf6c6bd948b9a3e6e7d14aea9"
+license = "GPL-3.0-or-later (code), CC-BY-4.0 (media)"
+
+[new_flowers]
+title = "New Flowers"
+role = "content"
+set = "plants"
+mod = "new_flowers"
+prefix = "NF"
+repo = "https://github.com/LLL4001/new_flowers"
+commit = "d143ccbb6aef97e4f0a14e37680766320784a8ec"
+license = "MIT (code), CC-BY-4.0 (media)"
+
+[moonflowers]
+title = "Moonflowers"
+role = "content"
+set = "plants"
+mod = "moonflowers"
+prefix = "MF"
+repo = "https://github.com/karlexceed/moonflowers"
+commit = "67fe72bed01e1d22c18622e60c115dbd5181dfb7"
+license = "LGPL-2.1-or-later (code), CC-BY-SA-4.0 (media)"
+
+[nextgen_fungi]
+title = "Nextgen Fungi"
+role = "content"
+set = "plants"
+mod = "nextgen_fungi"
+prefix = "NG"
+repo = "https://github.com/starninjas/nextgen_fungi"
+commit = "1269700beb26890732beb6ac649c31050792d6cf"
+license = "CC0-1.0 (code), CC-BY-SA-3.0 (media)"
+
+[decorations_sea]
+title = "Decorations Sea"
+role = "content"
+set = "plants"
+mod = "decorations_sea"
+prefix = "DS"
+repo = "https://github.com/mt-historical/decorations_sea"
+commit = "eda8ed63d043003115f17a239d4b255744b65734"
+license = "GPL-3.0-only (code), CC-BY-4.0 (media)"

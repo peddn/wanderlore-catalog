@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Puts the pictures of trees taken by scripts/shots_plants.sh on sheets.
+
+Usage: sheets_plants.py <folder with pictures> <folder for the sheets> <kind>
+
+The kind is "trees" or "beds". A picture is named
+"<number> <id> <name> <note>.png". The id starts with the letters of the
+source; the note is width x height for a tree and the category for a bed.
+"""
+import glob
+import os
+import re
+import sys
+
+from PIL import Image, ImageDraw, ImageFont
+
+TILE = 256
+COLUMNS = 5
+PER_SHEET = 20
+LABEL = 40
+HEAD = 44
+
+
+def load_font(size):
+    for path in (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    ):
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def main():
+    shots, out, kind = sys.argv[1], sys.argv[2], sys.argv[3]
+    heading = {"trees": "Bäume", "beds": "Beete"}[kind]
+    os.makedirs(out, exist_ok=True)
+    groups, order = {}, []
+    for path in sorted(glob.glob(os.path.join(shots, "*.png"))):
+        _, tree_id, name, size = os.path.basename(path)[:-4].split(" ", 3)
+        prefix = re.match("[A-Z]+", tree_id).group(0)
+        if prefix not in groups:
+            groups[prefix] = []
+            order.append(prefix)
+        groups[prefix].append((tree_id, name, size, path))
+
+    font, small, title_font = load_font(16), load_font(12), load_font(20)
+    count = 0
+    for prefix in order:
+        group = groups[prefix]
+        for start in range(0, len(group), PER_SHEET):
+            chunk = group[start:start + PER_SHEET]
+            rows = (len(chunk) + COLUMNS - 1) // COLUMNS
+            sheet = Image.new("RGB", (COLUMNS * TILE, HEAD + rows * (TILE + LABEL)), (22, 24, 28))
+            draw = ImageDraw.Draw(sheet)
+            title = "%s bis %s" % (chunk[0][0], chunk[-1][0])
+            draw.text((10, 10), heading + "  " + title, fill=(255, 255, 255), font=title_font)
+            for index, (tree_id, name, size, path) in enumerate(chunk):
+                picture = Image.open(path).convert("RGB")
+                width, height = picture.size
+                left = (width - height) // 2
+                tile = picture.crop((left, 0, left + height, height)).resize((TILE, TILE), Image.LANCZOS)
+                x = (index % COLUMNS) * TILE
+                y = HEAD + (index // COLUMNS) * (TILE + LABEL)
+                sheet.paste(tile, (x, y))
+                draw.text((x + 6, y + TILE + 2), tree_id, fill=(255, 255, 255), font=font)
+                # Many names repeat the name of their mod in front.
+                for lead in ("everness_", "naturalbiomes_", "livingjungle_", "livingdesert_",
+                             "livingfloatlands_", "ebiomes_", "x_farming_"):
+                    if name.startswith(lead):
+                        name = name[len(lead):]
+                draw.text((x + 6, y + TILE + 22), "%s  %s" % (name[:26], size),
+                          fill=(190, 196, 204), font=small)
+            count += 1
+            number = start // PER_SHEET + 1
+            sheet.save(os.path.join(out, "%s_%s_%02d.jpg" % (kind, prefix, number)), quality=90)
+    print("%d sheets of %s" % (count, kind))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Takes a picture of every creature and puts them on overview sheets in
-# .dev/sheets/. Runs Luanti on a virtual screen, so nothing appears on
-# yours. Needs Xvfb, ImageMagick (import) and Python 3 with Pillow.
+# .dev/sheets/. With "plants" as the first argument it does the same for
+# the blocks and trees of the plants world, into .dev/sheets-plants/; a
+# second argument limits that to the sources with these number prefixes,
+# for example: scripts/shots.sh plants "MT EB". A third argument limits it
+# to some kinds of pictures: pages, trees, beds.
+# Runs Luanti on a virtual screen, so nothing appears on yours. Needs
+# Xvfb, ImageMagick (import) and Python 3 with Pillow.
 # Run scripts/setup.sh first.
 set -euo pipefail
 
@@ -9,6 +14,10 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 dev="$repo/.dev"
 shots="$dev/shots"
 display=":${WL_CATALOG_DISPLAY:-97}"
+
+if [ "${1:-}" = "plants" ]; then
+	exec "$repo/scripts/shots_plants.sh" "${2:-}" "${3:-}"
+fi
 
 rm -rf "$shots" && mkdir -p "$shots" "$dev/home" "$dev/sheets"
 ln -sfn "$dev" "$dev/home/.minetest"

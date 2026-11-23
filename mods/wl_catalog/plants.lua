@@ -1,0 +1,1164 @@
+-- The catalogue of trees and plants. init.lua loads this file instead of
+-- the catalogue of creatures when the world is the plants world.
+--
+-- It shows two things. The blocks: every trunk, leaf, sapling, flower,
+-- grass, mushroom and ground block the sources registered, as pages of
+-- inventory pictures with numbers. And the trees: every tree the sources
+-- bring, standing in rows on a flat and bare world, one row per source.
+--
+-- Nothing here uses the generators of the sources. The world is
+-- "singlenode", the ground is a block of the catalogue that no plant
+-- spreads on, and the trees are placed one by one.
+
+local plants = {
+	nodes = {},     -- sorted list of blocks
+	node_by_id = {},
+	trees = {},     -- sorted list of trees
+	tree_by_id = {},
+	beds = {},      -- the blocks that stand as a bed in the world
+	signs = {},     -- names at the start of each row and aisle
+	sources = {},   -- list of sources that show something, in order
+}
+
+local storage = core.get_mod_storage()
+local SHOTS = core.settings:get_bool("wl_catalog_shots", false)
+
+local source_info = {}
+do
+	local path = core.get_worldpath() .. "/catalog_sources.lua"
+	local file = io.open(path, "r")
+	if file then
+		file:close()
+		source_info = dofile(path)
+	end
+	-- The mods of a modpack share one source.
+	local by_prefix = {}
+	for mod, source in pairs(source_info) do
+		if source.role == "content" then
+			by_prefix[source.prefix] = by_prefix[source.prefix] or source
+			source_info[mod] = by_prefix[source.prefix]
+		end
+	end
+end
+
+--
+-- The ground
+--
+
+-- Lines every block and a stronger one every eight, to judge sizes.
+core.register_node("wl_catalog:ground", {
+	description = "Boden des Katalogs",
+	tiles = {"[fill:16x16:#566349^[fill:15x15:0,0:#5f6d50"},
+	groups = {cracky = 3},
+	is_ground_content = false,
+})
+
+core.register_node("wl_catalog:path", {
+	description = "Weg des Katalogs",
+	tiles = {"[fill:16x16:#b9ab86^[fill:15x15:0,0:#c9bb95"},
+	groups = {cracky = 3},
+	is_ground_content = false,
+})
+
+local GROUND_TOP, GROUND_BOTTOM = 0, -6
+
+core.register_on_generated(function(minp, maxp)
+	if minp.y > GROUND_TOP or maxp.y < GROUND_BOTTOM then
+		return
+	end
+	local vmanip, emin, emax = core.get_mapgen_object("voxelmanip")
+	local area = VoxelArea(emin, emax)
+	local data = vmanip:get_data()
+	local ground = core.get_content_id("wl_catalog:ground")
+	for z = minp.z, maxp.z do
+		for y = math.max(minp.y, GROUND_BOTTOM), math.min(maxp.y, GROUND_TOP) do
+			local vi = area:index(minp.x, y, z)
+			for _ = minp.x, maxp.x do
+				data[vi] = ground
+				vi = vi + 1
+			end
+		end
+	end
+	vmanip:set_data(data)
+	vmanip:calc_lighting()
+	vmanip:write_to_map()
+end)
+
+--
+-- Blocks
+--
+
+local CATEGORIES = {"trunk", "planks", "leaves", "sapling", "flower", "mushroom", "plant", "water", "ground"}
+local CATEGORY_LABEL = {
+	trunk = "Stamm", planks = "Bretter", leaves = "Laub", sapling = "Setzling",
+	flower = "Blume", mushroom = "Pilz", plant = "Pflanze", water = "Wasserpflanze",
+	ground = "Boden",
+}
+local CATEGORY_COLOR = {
+	trunk = "#6b4a2e", planks = "#8a6a3c", leaves = "#2f6b33", sapling = "#4f8a3a",
+	flower = "#8a3f6f", mushroom = "#7a4a4a", plant = "#3f7a5a", water = "#2f5f8a",
+	ground = "#5a5a4a",
+}
+local CATEGORY_ORDER = {}
+for index, name in ipairs(CATEGORIES) do
+	CATEGORY_ORDER[name] = index
+end
+
+-- Shapes built from a block, which would only repeat its texture.
+local DERIVED = {"stair", "slab", "fence", "gate", "door", "wall", "_post", "panel", "micro_",
+	"slope", "ladder", "sign", "chest", "bookshelf", "table", "chair", "bench", "pane"}
+
+local function category(name, def)
+	local groups = def.groups or {}
+	if groups.not_in_creative_inventory and groups.not_in_creative_inventory > 0 then
+		return nil
+	end
+	local short = name:match(":(.*)$") or name
+	for _, part in ipairs(DERIVED) do
+		if short:find(part, 1, true) then
+			return nil
+		end
+	end
+	local drawtype = def.drawtype or "normal"
+	if groups.sapling then
+		return "sapling"
+	elseif groups.tree then
+		return "trunk"
+	elseif groups.wood then
+		return "planks"
+	elseif groups.leaves or groups.leafdecay then
+		return "leaves"
+	elseif groups.mushroom then
+		return "mushroom"
+	elseif groups.flower then
+		return "flower"
+	elseif drawtype == "plantlike_rooted" or short:find("lily", 1, true)
+			or short:find("coral", 1, true) or short:find("seaweed", 1, true)
+			or short:find("kelp", 1, true) then
+		return "water"
+	elseif drawtype == "plantlike" or groups.flora or groups.grass or groups.plant
+			or groups.vines or groups.attached_node and (drawtype == "mesh" or drawtype == "nodebox") then
+		return "plant"
+	elseif groups.soil or groups.spreading_dirt_type then
+		return "ground"
+	end
+	return nil
+end
+
+local function plain(text)
+	text = core.get_translated_string("de", tostring(text or ""))
+	text = core.strip_colors(text)
+	return (text:gsub("\n.*", ""))
+end
+
+local function collect_nodes()
+	local list = {}
+	for name, def in pairs(core.registered_nodes) do
+		local mod = name:match("^([^:]+):")
+		local source = mod and source_info[mod]
+		if source and source.role == "content" then
+			local kind = category(name, def)
+			if kind then
+				list[#list + 1] = {
+					name = name,
+					short = name:match(":(.*)$"),
+					description = plain(def.description),
+					category = kind,
+					source = source,
+				}
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.source.order ~= b.source.order then
+			return a.source.order < b.source.order
+		elseif a.category ~= b.category then
+			return CATEGORY_ORDER[a.category] < CATEGORY_ORDER[b.category]
+		end
+		return a.name < b.name
+	end)
+	local count = {}
+	for _, entry in ipairs(list) do
+		local prefix = entry.source.prefix
+		count[prefix] = (count[prefix] or 0) + 1
+		entry.id = prefix .. count[prefix]
+		plants.node_by_id[entry.id] = entry
+	end
+	plants.nodes = list
+end
+
+--
+-- Trees
+--
+
+local plant_category = {}
+
+local function resolve(name)
+	return core.registered_aliases[name] or name
+end
+
+-- Looks into a schematic. Returns its size, whether it holds blocks of
+-- the catalogue other than ground, and the mod most of them come from.
+local function inspect(schematic)
+	local ok, read = true, schematic
+	if type(schematic) ~= "table" then
+		ok, read = pcall(core.read_schematic, schematic, {write_yslice_prob = "none"})
+	end
+	if not ok or type(read) ~= "table" or type(read.size) ~= "table" or type(read.data) ~= "table" then
+		return nil
+	end
+	local mods, found, trunks = {}, 0, 0
+	for _, node in ipairs(read.data) do
+		local name = resolve(node.name)
+		local kind = plant_category[name]
+		if kind and kind ~= "ground" and (node.prob or 255) > 0 then
+			found = found + 1
+			if kind == "trunk" then
+				trunks = trunks + 1
+			end
+			local mod = name:match("^([^:]+):")
+			mods[mod] = (mods[mod] or 0) + 1
+		end
+	end
+	local best, most = nil, 0
+	for mod, number in pairs(mods) do
+		if number > most then
+			best, most = mod, number
+		end
+	end
+	return read.size, found, best, trunks
+end
+
+local function mod_of_path(path)
+	local found, length = nil, 0
+	for _, mod in ipairs(core.get_modnames()) do
+		local modpath = core.get_modpath(mod)
+		if modpath and #modpath > length and path:sub(1, #modpath + 1) == modpath .. "/" then
+			found, length = mod, #modpath
+		end
+	end
+	return found
+end
+
+local function clean_path(path)
+	return (path:gsub("\\", "/"):gsub("/+", "/"))
+end
+
+local function collect_trees()
+	local list, seen = {}, {}
+
+	local function add(schematic, name, mod, offset)
+		local size, found, guess, trunks = inspect(schematic)
+		if not size or found == 0 then
+			return
+		end
+		mod = mod or guess
+		local source = mod and source_info[mod] or guess and source_info[guess]
+		if not source or source.role ~= "content" then
+			return
+		end
+		-- The same tree registered again, for another biome.
+		local key = source.prefix .. "|" .. name .. "|" .. size.x .. "x" .. size.y .. "x" .. size.z
+		if seen[key] then
+			return
+		end
+		seen[key] = true
+		list[#list + 1] = {
+			name = name,
+			source = source,
+			w = size.x, h = size.y, d = size.z,
+			offset = offset or 0,
+			trunks = trunks,
+			schematic = schematic,
+		}
+	end
+
+	-- What the sources registered for their own generators.
+	local numbered = {}
+	for _, def in pairs(core.registered_decorations) do
+		if def.deco_type == "schematic" and def.schematic then
+			if type(def.schematic) == "string" then
+				local path = clean_path(def.schematic)
+				if not seen[path] then
+					seen[path] = true
+					add(path, path:match("([^/]+)%.mts$") or path, mod_of_path(path), def.place_offset_y)
+				end
+			elseif type(def.schematic) == "table" and not seen[def.schematic] then
+				seen[def.schematic] = true
+				local name = def.name and def.name:match("([^:]+)$")
+				if not name then
+					-- Named after its most frequent block.
+					local counts, best, most = {}, "tree", 0
+					for _, node in ipairs(def.schematic.data or {}) do
+						local node_name = resolve(node.name)
+						if plant_category[node_name] and plant_category[node_name] ~= "ground" then
+							counts[node_name] = (counts[node_name] or 0) + 1
+							if counts[node_name] > most then
+								best, most = node_name:match(":(.*)$"), counts[node_name]
+							end
+						end
+					end
+					name = best
+				end
+				add(def.schematic, name, nil, def.place_offset_y)
+			end
+		end
+	end
+
+	-- Schematic files the sources carry without registering them, such as
+	-- the trees that only grow from saplings.
+	local function scan(mod, folder, depth)
+		for _, file in ipairs(core.get_dir_list(folder, false) or {}) do
+			if file:match("%.mts$") then
+				local path = clean_path(folder .. "/" .. file)
+				if not seen[path] then
+					seen[path] = true
+					add(path, file:match("^(.*)%.mts$"), mod, 0)
+				end
+			end
+		end
+		if depth > 0 then
+			for _, sub in ipairs(core.get_dir_list(folder, true) or {}) do
+				if sub ~= "textures" and sub ~= "models" and sub ~= "sounds" and sub ~= "locale" then
+					scan(mod, folder .. "/" .. sub, depth - 1)
+				end
+			end
+		end
+	end
+	for mod, source in pairs(source_info) do
+		local modpath = core.get_modpath(mod)
+		if modpath and source.role == "content" then
+			scan(mod, modpath, 2)
+		end
+	end
+
+	-- Trees that More Trees grows from rules instead of files.
+	local moretrees = rawget(_G, "moretrees")
+	local source = source_info.moretrees
+	if moretrees and source and type(moretrees.treelist) == "table" then
+		for _, def in ipairs(moretrees.treelist) do
+			local tree = def[1]
+			local grow = moretrees["grow_" .. tree]
+			local model = moretrees[tree .. "_model"]
+			if type(grow) == "function" or type(model) == "table" then
+				list[#list + 1] = {
+					name = tree,
+					source = source,
+					w = 40, h = 60, d = 40,
+					offset = 0,
+					grown = true,
+					grow = function(pos)
+						if type(grow) == "function" then
+							grow(pos)
+						else
+							core.spawn_tree(pos, model)
+						end
+					end,
+				}
+			end
+		end
+	end
+
+	table.sort(list, function(a, b)
+		if a.source.order ~= b.source.order then
+			return a.source.order < b.source.order
+		elseif a.name ~= b.name then
+			return a.name < b.name
+		end
+		return a.h < b.h
+	end)
+	local count = {}
+	for _, entry in ipairs(list) do
+		local prefix = entry.source.prefix
+		count[prefix] = (count[prefix] or 0) + 1
+		entry.id = prefix .. "-T" .. count[prefix]
+		plants.tree_by_id[entry.id] = entry
+	end
+	plants.trees = list
+end
+
+--
+-- Where the trees stand
+--
+
+-- Rows run along x, one per source, far enough apart that the next row
+-- lies beyond the viewing range.
+local ROW_Z, ROW_GAP = 200, 320
+local BASE_Y = GROUND_TOP + 1
+-- Half the height of the picture at distance 1, for the field of view
+-- used in the pictures.
+local FOV = 60
+local HALF = math.tan(math.rad(FOV / 2))
+
+-- The width a tree needs in its row and in its picture.
+local function view_of(tree)
+	return math.max(tree.w, tree.d, tree.h + tree.offset) * 1.15 + 4
+end
+
+local function lay_out()
+	local row, x, last = 0, 0, nil
+	for _, tree in ipairs(plants.trees) do
+		if tree.source ~= last then
+			row, x, last = row + 1, 0, tree.source
+			tree.source.row_z = ROW_Z + (row - 1) * ROW_GAP
+			plants.signs[#plants.signs + 1] = {
+				pos = {x = -10, y = BASE_Y + 6, z = tree.source.row_z},
+				text = tree.source.prefix .. " " .. tree.source.title,
+			}
+		end
+		local slot = math.ceil(view_of(tree))
+		tree.x = x + math.floor(slot / 2)
+		tree.z = tree.source.row_z
+		x = x + slot
+	end
+end
+
+-- Where to stand to see the whole tree, looking along +z.
+local function viewpoint(tree)
+	-- Measured on pictures: the client shows more than the field of view
+	-- says, so the camera stands closer than the calculation gives.
+	local distance = 0.66 * view_of(tree) / (2 * HALF)
+	local height = math.max(tree.h + tree.offset, 2)
+	return {
+		x = tree.x + (tree.shift_x or 0),
+		y = BASE_Y + height / 2,
+		z = tree.z + (tree.shift_z or 0) - tree.d / 2 - distance,
+	}
+end
+
+-- Measures what grew at the place of a tree, for the trees whose size is
+-- not known beforehand.
+local function measure(tree)
+	local reach = 24
+	local p1 = {x = tree.x - reach, y = BASE_Y, z = tree.z - reach}
+	local p2 = {x = tree.x + reach, y = BASE_Y + 90, z = tree.z + reach}
+	local vmanip = VoxelManip()
+	local emin, emax = vmanip:read_from_map(p1, p2)
+	local area = VoxelArea(emin, emax)
+	local data = vmanip:get_data()
+	local air, ignore = core.CONTENT_AIR, core.CONTENT_IGNORE
+	local minx, maxx, minz, maxz, maxy
+	for z = p1.z, p2.z do
+		for y = p1.y, p2.y do
+			local vi = area:index(p1.x, y, z)
+			for x = p1.x, p2.x do
+				local content = data[vi]
+				if content ~= air and content ~= ignore then
+					minx, maxx = math.min(minx or x, x), math.max(maxx or x, x)
+					minz, maxz = math.min(minz or z, z), math.max(maxz or z, z)
+					maxy = math.max(maxy or y, y)
+				end
+				vi = vi + 1
+			end
+		end
+	end
+	if not minx then
+		return nil
+	end
+	return {
+		w = maxx - minx + 1, h = maxy - BASE_Y + 1, d = maxz - minz + 1,
+		shift_x = (minx + maxx) / 2 - tree.x, shift_z = (minz + maxz) / 2 - tree.z,
+	}
+end
+
+local function apply_measure(tree, size)
+	tree.w, tree.h, tree.d = size.w, size.h, size.d
+	tree.shift_x, tree.shift_z = size.shift_x, size.shift_z
+end
+
+--
+-- Beds of ground plants
+--
+-- Every flower, mushroom, plant and water plant stands as a small field
+-- of its own, to show how it looks when it covers the ground. The beds
+-- lie apart from the trees. Every source has an aisle of its own: a path
+-- along x with its beds on both sides.
+
+local BED_KINDS = {flower = true, mushroom = true, plant = true, water = true}
+local BED, BED_SLOT = 5, 12
+local AISLE_Z, AISLE_GAP = -400, 48
+-- How far the middle of a bed lies from the middle of the path.
+local BED_SIDE = 7
+
+local function lay_out_beds()
+	local aisle, count, last = 0, 0, nil
+	for _, entry in ipairs(plants.nodes) do
+		if BED_KINDS[entry.category] then
+			if entry.source ~= last then
+				aisle, count, last = aisle + 1, 0, entry.source
+				entry.source.aisle_z = AISLE_Z - (aisle - 1) * AISLE_GAP
+				plants.signs[#plants.signs + 1] = {
+					pos = {x = -6, y = BASE_Y + 3, z = entry.source.aisle_z},
+					text = entry.source.prefix .. " " .. entry.source.title,
+				}
+			end
+			-- Left and right in turn, so that the numbers run along the path.
+			entry.bed_side = count % 2 == 0 and 1 or -1
+			entry.bed_x = math.floor(count / 2) * BED_SLOT
+			entry.bed_z = entry.source.aisle_z + entry.bed_side * BED_SIDE
+			count = count + 1
+			plants.beds[#plants.beds + 1] = entry
+		end
+	end
+end
+
+-- Where to stand to see a bed: on the far edge of the path, looking
+-- across it and down at the bed.
+local BED_PITCH = math.rad(36)
+local function bed_viewpoint(entry)
+	return {x = entry.bed_x, y = BASE_Y + 3.6, z = entry.bed_z - entry.bed_side * 5.2}
+end
+local function bed_yaw(entry)
+	return entry.bed_side == 1 and 0 or math.pi
+end
+
+-- Written straight into the map, so that no block starts to grow.
+local function place_bed(entry)
+	local def = core.registered_nodes[entry.name]
+	local half = math.floor(BED / 2)
+	-- A plant that is rooted in its block takes the place of the ground.
+	local y = def.drawtype == "plantlike_rooted" and GROUND_TOP or BASE_Y
+	local param2 = def.place_param2 or 0
+	if def.paramtype2 == "wallmounted" or def.paramtype2 == "colorwallmounted" then
+		param2 = 1
+	end
+	local p1 = {x = entry.bed_x - half, y = y, z = entry.bed_z - half}
+	local p2 = {x = entry.bed_x + half, y = y, z = entry.bed_z + half}
+	local vmanip = VoxelManip()
+	local emin, emax = vmanip:read_from_map(p1, p2)
+	local area = VoxelArea(emin, emax)
+	local data, params = vmanip:get_data(), vmanip:get_param2_data()
+	local content = core.get_content_id(entry.name)
+	for z = p1.z, p2.z do
+		for x = p1.x, p2.x do
+			local vi = area:index(x, y, z)
+			data[vi] = content
+			params[vi] = param2
+		end
+	end
+	vmanip:set_data(data)
+	vmanip:set_param2_data(params)
+	vmanip:write_to_map(true)
+
+	-- The piece of the path in front of the bed.
+	local aisle_z = entry.source.aisle_z
+	p1 = {x = entry.bed_x - BED_SLOT / 2, y = GROUND_TOP, z = aisle_z - 1}
+	p2 = {x = entry.bed_x + BED_SLOT / 2 - 1, y = GROUND_TOP, z = aisle_z + 1}
+	vmanip = VoxelManip()
+	emin, emax = vmanip:read_from_map(p1, p2)
+	area = VoxelArea(emin, emax)
+	data = vmanip:get_data()
+	local path = core.get_content_id("wl_catalog:path")
+	for z = p1.z, p2.z do
+		for x = p1.x, p2.x do
+			data[area:index(x, GROUND_TOP, z)] = path
+		end
+	end
+	vmanip:set_data(data)
+	vmanip:write_to_map(true)
+end
+
+local built = storage:get_int("built") == 1
+local measured = core.deserialize(storage:get_string("measured")) or {}
+
+local function place(tree)
+	local pos = {x = tree.x, y = BASE_Y + tree.offset, z = tree.z}
+	if tree.grow then
+		-- Something for the tree to start from, as a sapling would have.
+		local ok, err = pcall(tree.grow, {x = tree.x, y = BASE_Y, z = tree.z})
+		if not ok then
+			core.log("warning", "[wl_catalog] " .. tree.id .. " did not grow: " .. tostring(err))
+		end
+		local size = measure(tree)
+		if size then
+			measured[tree.id] = size
+			apply_measure(tree, size)
+		else
+			tree.failed = true
+			measured[tree.id] = {failed = true}
+		end
+	else
+		local ok, result = pcall(core.place_schematic, pos, tree.schematic, "0", nil, false,
+			"place_center_x, place_center_z")
+		if not ok or not result then
+			core.log("warning", "[wl_catalog] " .. tree.id .. " could not be placed: " .. tostring(result))
+			tree.failed = true
+			measured[tree.id] = {failed = true}
+		end
+	end
+end
+
+-- Places the trees one after the other. Each waits until the generator
+-- has laid the ground below it.
+local function build(index)
+	local tree = plants.trees[index]
+	if not tree then
+		local entry = plants.beds[index - #plants.trees]
+		if not entry then
+			storage:set_int("built", 1)
+			storage:set_string("measured", core.serialize(measured))
+			built = true
+			core.log("action", "[wl_catalog] BUILT " .. #plants.trees .. " trees, " ..
+				#plants.beds .. " beds")
+			return
+		end
+		local p1 = {x = entry.bed_x - BED_SLOT / 2, y = GROUND_BOTTOM, z = entry.source.aisle_z - BED_SIDE - 3}
+		local p2 = {x = entry.bed_x + BED_SLOT / 2, y = BASE_Y + 2, z = entry.source.aisle_z + BED_SIDE + 3}
+		core.emerge_area(p1, p2, function(_, _, remaining)
+			if remaining == 0 then
+				core.after(0, function()
+					local ok, err = pcall(place_bed, entry)
+					if not ok then
+						core.log("warning", "[wl_catalog] bed " .. entry.id .. " failed: " .. tostring(err))
+					end
+					build(index + 1)
+				end)
+			end
+		end)
+		return
+	end
+	local reach = math.ceil(math.max(tree.w, tree.d) / 2) + 2
+	local p1 = {x = tree.x - reach, y = GROUND_BOTTOM, z = tree.z - reach}
+	local p2 = {x = tree.x + reach, y = BASE_Y + math.max(tree.h, 16) + 4, z = tree.z + reach}
+	core.emerge_area(p1, p2, function(_, _, remaining)
+		if remaining == 0 then
+			-- Not from inside the callback: the next request has to wait
+			-- until this one has returned.
+			core.after(0, function()
+				place(tree)
+				build(index + 1)
+			end)
+		end
+	end)
+end
+
+--
+-- Pages of blocks
+--
+
+local COLUMNS, ROWS = 12, 6
+local PER_PAGE = COLUMNS * ROWS
+local PAGE_W, PAGE_H = 24.4, 14.2
+
+-- The pages: each holds blocks of one source only.
+local pages = {}
+
+local function paginate()
+	local page
+	for _, entry in ipairs(plants.nodes) do
+		if not page or page.source ~= entry.source or #page.entries == PER_PAGE then
+			page = {source = entry.source, entries = {}}
+			pages[#pages + 1] = page
+		end
+		page.entries[#page.entries + 1] = entry
+	end
+	local number = {}
+	for _, one in ipairs(pages) do
+		number[one.source] = (number[one.source] or 0) + 1
+		one.number = number[one.source]
+	end
+	for _, one in ipairs(pages) do
+		one.of = number[one.source]
+	end
+end
+
+local function page_formspec(index, buttons)
+	local page = pages[index]
+	local esc = core.formspec_escape
+	local fs = {
+		"formspec_version[7]size[", PAGE_W, ",", PAGE_H, "]",
+		"bgcolor[#22262cff;true]box[0,0;", PAGE_W, ",", PAGE_H, ";#22262c]",
+		"style_type[label;font_size=*1.25;font=bold]",
+		"label[0.3,0.45;", esc(page.source.prefix .. "  " .. page.source.title .. "  –  " ..
+			page.entries[1].id .. " bis " .. page.entries[#page.entries].id ..
+			"  (Seite " .. page.number .. " von " .. page.of .. ")"), "]",
+		"style_type[label;font_size=*0.8;font=normal]",
+		"label[", PAGE_W - 9.2, ",0.45;", esc("Lizenz: " .. page.source.license:sub(1, 70)), "]",
+	}
+	for slot, entry in ipairs(page.entries) do
+		local x = 0.2 + ((slot - 1) % COLUMNS) * 2.0
+		local y = 0.9 + math.floor((slot - 1) / COLUMNS) * 2.2
+		fs[#fs + 1] = "box[" .. x .. "," .. y .. ";1.9,2.1;" .. CATEGORY_COLOR[entry.category] .. "]"
+		if buttons then
+			fs[#fs + 1] = "item_image_button[" .. (x + 0.3) .. "," .. (y + 0.08) .. ";1.3,1.3;" ..
+				esc(entry.name) .. ";pick_" .. entry.id .. ";]"
+		else
+			fs[#fs + 1] = "item_image[" .. (x + 0.3) .. "," .. (y + 0.08) .. ";1.3,1.3;" .. esc(entry.name) .. "]"
+		end
+		fs[#fs + 1] = "style_type[label;font_size=*1.0;font=bold]"
+		fs[#fs + 1] = "label[" .. (x + 0.08) .. "," .. (y + 1.6) .. ";" .. esc(entry.id) .. "]"
+		fs[#fs + 1] = "style_type[label;font_size=*0.62;font=normal]"
+		fs[#fs + 1] = "label[" .. (x + 0.08) .. "," .. (y + 1.93) .. ";" .. esc(entry.short:sub(1, 18)) .. "]"
+	end
+	return table.concat(fs)
+end
+
+--
+-- Using the catalogue in the game
+--
+
+local FORMNAME = "wl_catalog:plants"
+local states = {}
+
+local function show(name)
+	local state = states[name]
+	if not state then
+		state = {page = 1}
+		states[name] = state
+	end
+	if #pages == 0 then
+		core.chat_send_player(name, "Die Quellen haben keine Pflanzen angemeldet.")
+		return
+	end
+	state.page = math.max(1, math.min(#pages, state.page))
+	local esc = core.formspec_escape
+	local titles, selected = {}, 1
+	for index, source in ipairs(plants.sources) do
+		titles[index] = esc(source.prefix .. " " .. source.title)
+		if source == pages[state.page].source then
+			selected = index
+		end
+	end
+	local fs = page_formspec(state.page, true) ..
+		"style_type[label;font_size=*1.0;font=normal]" ..
+		"button[0.2," .. (PAGE_H - 0.0) .. ";2,0.8;prev;<]" ..
+		"button[2.3," .. (PAGE_H - 0.0) .. ";2,0.8;next;>]" ..
+		"dropdown[4.6," .. (PAGE_H - 0.0) .. ";7,0.8;source;" .. table.concat(titles, ",") .. ";" .. selected .. ";true]" ..
+		"label[12," .. (PAGE_H + 0.4) .. ";" .. esc(state.info or "Ein Klick legt den Block ins Inventar.") .. "]"
+	fs = fs:gsub("size%[[^%]]*%]", "size[" .. PAGE_W .. "," .. (PAGE_H + 1.0) .. "]", 1)
+	core.show_formspec(name, FORMNAME, fs)
+end
+
+core.register_on_player_receive_fields(function(player, formname, fields)
+	if formname ~= FORMNAME then
+		return false
+	end
+	local name = player:get_player_name()
+	local state = states[name]
+	if not state or fields.quit then
+		return true
+	end
+	if fields.prev then
+		state.page = (state.page - 2) % #pages + 1
+	elseif fields.next then
+		state.page = state.page % #pages + 1
+	elseif fields.source and plants.sources[tonumber(fields.source)]
+			and plants.sources[tonumber(fields.source)] ~= pages[state.page].source then
+		local source = plants.sources[tonumber(fields.source)]
+		for index, page in ipairs(pages) do
+			if page.source == source then
+				state.page = index
+				break
+			end
+		end
+	else
+		for field in pairs(fields) do
+			local id = field:match("^pick_(.+)$")
+			local entry = id and plants.node_by_id[id]
+			if entry then
+				player:get_inventory():add_item("main", entry.name)
+				state.info = entry.id .. "  " .. entry.name .. "  (" .. CATEGORY_LABEL[entry.category] ..
+					")  " .. entry.description
+			end
+		end
+	end
+	show(name)
+	return true
+end)
+
+core.register_chatcommand("pflanzen", {
+	description = "Öffnet die Tafeln der Blöcke",
+	func = function(name)
+		show(name)
+		return true
+	end,
+})
+
+local function go_to(player, tree)
+	local pos = viewpoint(tree)
+	pos.y = BASE_Y
+	player:set_pos(pos)
+	player:set_look_horizontal(0)
+	player:set_look_vertical(0)
+end
+
+core.register_chatcommand("baum", {
+	params = "[<Nummer>]",
+	description = "Springt vor einen Baum, etwa /baum MT-T3. Ohne Nummer: die Reihen.",
+	func = function(name, param)
+		local player = core.get_player_by_name(name)
+		if not player then
+			return false
+		end
+		param = param:trim():upper()
+		if param == "" then
+			local lines = {}
+			for _, source in ipairs(plants.sources) do
+				if source.first_tree then
+					lines[#lines + 1] = source.first_tree.id .. " bis " .. source.last_tree.id ..
+						"  " .. source.title
+				end
+			end
+			return true, "Reihen der Bäume:\n" .. table.concat(lines, "\n")
+		end
+		local tree = plants.tree_by_id[param] or plants.tree_by_id[param .. "-T1"]
+		if not tree then
+			return false, "Diese Nummer gibt es nicht."
+		end
+		go_to(player, tree)
+		return true, tree.id .. "  " .. tree.name .. "  " .. tree.w .. " breit, " .. tree.h .. " hoch"
+	end,
+})
+
+core.register_chatcommand("beet", {
+	params = "<Nummer oder Quelle>",
+	description = "Springt vor das Beet einer Bodenpflanze, etwa /beet EB12, oder an den Anfang eines Gangs, etwa /beet EB",
+	func = function(name, param)
+		local player = core.get_player_by_name(name)
+		param = param:trim():upper()
+		local entry = plants.node_by_id[param]
+		if not player then
+			return false
+		end
+		for _, source in ipairs(plants.sources) do
+			if source.prefix == param and source.aisle_z then
+				player:set_pos({x = -4, y = BASE_Y, z = source.aisle_z})
+				player:set_look_horizontal(-math.pi / 2)
+				player:set_look_vertical(0)
+				return true, "Gang von " .. source.title
+			end
+		end
+		if not entry or not entry.bed_x then
+			return false, "Zu dieser Nummer gibt es kein Beet."
+		end
+		local pos = bed_viewpoint(entry)
+		pos.y = BASE_Y
+		player:set_pos(pos)
+		player:set_look_horizontal(bed_yaw(entry))
+		player:set_look_vertical(0)
+		return true, entry.id .. "  " .. entry.name
+	end,
+})
+
+core.register_craftitem("wl_catalog:plant_book", {
+	description = "Tafeln der Pflanzen",
+	inventory_image = "default_book.png",
+	on_use = function(_, user)
+		show(user:get_player_name())
+	end,
+})
+
+-- Numbers above the trees near the player.
+local huds = {}
+
+local function update_huds()
+	for _, player in ipairs(core.get_connected_players()) do
+		local name = player:get_player_name()
+		local shown = huds[name] or {}
+		huds[name] = shown
+		local pos = player:get_pos()
+		for _, tree in ipairs(plants.trees) do
+			local near = math.abs(tree.z - pos.z) < 160 and math.abs(tree.x - pos.x) < 140
+			if near and not shown[tree.id] then
+				shown[tree.id] = player:hud_add({
+					type = "waypoint",
+					name = tree.id .. " " .. tree.name,
+					text = "",
+					precision = 0,
+					number = 0xFFFFFF,
+					world_pos = {x = tree.x, y = BASE_Y + tree.h + tree.offset + 2, z = tree.z},
+				})
+			elseif not near and shown[tree.id] then
+				player:hud_remove(shown[tree.id])
+				shown[tree.id] = nil
+			end
+		end
+		for index, sign in ipairs(plants.signs) do
+			local key = "sign" .. index
+			local near = math.abs(sign.pos.z - pos.z) < 400 and math.abs(sign.pos.x - pos.x) < 400
+			if near and not shown[key] then
+				shown[key] = player:hud_add({
+					type = "waypoint",
+					name = sign.text,
+					text = "",
+					precision = 0,
+					number = 0xFFE08A,
+					world_pos = sign.pos,
+				})
+			elseif not near and shown[key] then
+				player:hud_remove(shown[key])
+				shown[key] = nil
+			end
+		end
+		for _, entry in ipairs(plants.beds) do
+			local near = math.abs(entry.bed_z - pos.z) < 40 and math.abs(entry.bed_x - pos.x) < 50
+			if near and not shown[entry.id] then
+				shown[entry.id] = player:hud_add({
+					type = "waypoint",
+					name = entry.id .. " " .. entry.short,
+					text = "",
+					precision = 0,
+					number = 0xFFFFFF,
+					world_pos = {x = entry.bed_x, y = BASE_Y + 2.5, z = entry.bed_z},
+				})
+			elseif not near and shown[entry.id] then
+				player:hud_remove(shown[entry.id])
+				shown[entry.id] = nil
+			end
+		end
+	end
+	core.after(2, update_huds)
+end
+
+--
+-- Pictures
+--
+-- With the setting wl_catalog_shots the catalogue shows every page of
+-- blocks and then every tree for a moment and writes a line to the log
+-- for each. A script outside the game takes a screenshot at each line.
+
+local SHOTNAME = "wl_catalog:plants_shot"
+local shot_number = 0
+
+-- wl_catalog_shots_only limits the pictures to some sources, named by
+-- their prefixes.
+local only
+do
+	local setting = core.settings:get("wl_catalog_shots_only") or ""
+	for prefix in setting:gmatch("%S+") do
+		only = only or {}
+		only[prefix:upper()] = true
+	end
+end
+local function wanted(source)
+	return not only or only[source.prefix]
+end
+
+-- wl_catalog_shots_what limits them to some kinds: pages, trees, beds.
+local what
+do
+	local setting = core.settings:get("wl_catalog_shots_what") or ""
+	for kind in setting:gmatch("%S+") do
+		what = what or {}
+		what[kind] = true
+	end
+end
+
+-- A plain sky, nothing on the screen, and a player who stays where put.
+local function prepare_view(player)
+	player:hud_set_flags({hotbar = false, healthbar = false, crosshair = false, wielditem = false,
+		breathbar = false, minimap = false, minimap_radar = false, basic_debug = false, chat = false})
+	player:set_physics_override({gravity = 0, speed = 0, jump = 0})
+	player:set_fov(FOV, false, 0)
+	local inventory = player:get_inventory()
+	inventory:set_size("hand", 1)
+	inventory:set_stack("hand", 1, "wl_catalog:no_hand")
+	inventory:set_list("main", {})
+	player:set_sky({type = "plain", base_color = "#a9c8e6", clouds = false})
+	player:set_clouds({density = 0})
+	player:set_sun({visible = false, sunrise_visible = false})
+	player:set_moon({visible = false})
+	player:set_stars({visible = false})
+	player:override_day_night_ratio(1)
+end
+
+local function shot(label)
+	shot_number = shot_number + 1
+	core.log("action", "[wl_catalog] SHOT " .. shot_number .. " " .. label)
+end
+
+local function shoot_beds(name, index)
+	local player = core.get_player_by_name(name)
+	local entry = plants.beds[index]
+	if not player or not entry or what and not what.beds then
+		core.log("action", "[wl_catalog] SHOTS DONE")
+		return
+	end
+	if not wanted(entry.source) then
+		return shoot_beds(name, index + 1)
+	end
+	local pos = bed_viewpoint(entry)
+	pos.y = pos.y - 1.625
+	player:set_pos(pos)
+	player:set_look_horizontal(bed_yaw(entry))
+	player:set_look_vertical(BED_PITCH)
+	-- The first beds of an aisle need longer, their surroundings are new.
+	core.after(entry.bed_x == 0 and 3.0 or 1.4, function()
+		shot("bed " .. entry.id .. " " .. entry.short:gsub("[^%w_]", "_") .. " " .. entry.category)
+		core.after(0.9, shoot_beds, name, index + 1)
+	end)
+end
+
+local function shoot_trees(name, index)
+	local player = core.get_player_by_name(name)
+	local tree = plants.trees[index]
+	if not player or not tree or what and not what.trees then
+		return shoot_beds(name, 1)
+	end
+	if tree.failed or not wanted(tree.source) then
+		return shoot_trees(name, index + 1)
+	end
+	local pos = viewpoint(tree)
+	-- The position of a player is that of the feet.
+	pos.y = pos.y - 1.625
+	player:set_pos(pos)
+	player:set_look_horizontal(0)
+	player:set_look_vertical(0)
+	-- Far trees need longer until the client has their blocks.
+	local wait = 2.0 + view_of(tree) / 40
+	core.after(wait, function()
+		shot("tree " .. tree.id .. " " .. tree.name:gsub("[^%w_]", "_") .. " " .. tree.w .. "x" .. tree.h)
+		core.after(1.0, shoot_trees, name, index + 1)
+	end)
+end
+
+local function shoot_pages(name, index)
+	if not core.get_player_by_name(name) then
+		return
+	end
+	local page = pages[index]
+	if not page or what and not what.pages then
+		core.close_formspec(name, SHOTNAME)
+		core.after(1.0, shoot_trees, name, 1)
+		return
+	end
+	if not wanted(page.source) then
+		return shoot_pages(name, index + 1)
+	end
+	core.show_formspec(name, SHOTNAME, page_formspec(index, false))
+	core.after(1.6, function()
+		shot("page " .. page.source.prefix .. " " .. page.number)
+		core.after(1.0, shoot_pages, name, index + 1)
+	end)
+end
+
+local function start_shots(name)
+	if not built then
+		core.after(1, start_shots, name)
+		return
+	end
+	-- Once more: some sources set a sky of their own after a player joined.
+	local player = core.get_player_by_name(name)
+	if player then
+		prepare_view(player)
+	end
+	shoot_pages(name, 1)
+end
+
+--
+-- Start
+--
+
+-- A hand that reaches nothing, so that no block is outlined in a picture.
+core.register_item("wl_catalog:no_hand", {
+	type = "none",
+	wield_image = "blank.png",
+	range = 0,
+})
+
+core.register_on_mods_loaded(function()
+	-- Nothing may grow, spread or wither while one looks at it. The game
+	-- lets mushrooms die in daylight, for one.
+	for _, list in ipairs({core.registered_abms, core.registered_lbms}) do
+		for index = #list, 1, -1 do
+			list[index] = nil
+		end
+	end
+	collect_nodes()
+	for _, entry in ipairs(plants.nodes) do
+		plant_category[entry.name] = entry.category
+	end
+	collect_trees()
+	lay_out()
+	lay_out_beds()
+	paginate()
+
+	local seen = {}
+	local function note(source)
+		if not seen[source] then
+			seen[source] = true
+			plants.sources[#plants.sources + 1] = source
+		end
+	end
+	for _, entry in ipairs(plants.nodes) do
+		note(entry.source)
+	end
+	for _, tree in ipairs(plants.trees) do
+		note(tree.source)
+		tree.source.first_tree = tree.source.first_tree or tree
+		tree.source.last_tree = tree
+		local size = measured[tree.id]
+		if size and size.failed then
+			tree.failed = true
+		elseif size then
+			apply_measure(tree, size)
+		end
+	end
+	table.sort(plants.sources, function(a, b)
+		return a.order < b.order
+	end)
+
+	core.log("action", "[wl_catalog] plants: " .. #plants.nodes .. " blocks on " .. #pages ..
+		" pages, " .. #plants.trees .. " trees, " .. #plants.beds .. " beds from " .. #plants.sources .. " sources")
+	for _, source in ipairs(plants.sources) do
+		local blocks, trees = 0, 0
+		for _, entry in ipairs(plants.nodes) do
+			blocks = blocks + (entry.source == source and 1 or 0)
+		end
+		for _, tree in ipairs(plants.trees) do
+			trees = trees + (tree.source == source and 1 or 0)
+		end
+		core.log("action", "[wl_catalog] source " .. source.prefix .. " | " .. source.title ..
+			" | " .. blocks .. " | " .. trees)
+	end
+	if not built then
+		core.after(0, build, 1)
+	end
+	if not SHOTS then
+		core.after(2, update_huds)
+	end
+end)
+
+core.register_on_joinplayer(function(player)
+	local name = player:get_player_name()
+	local privs = core.get_player_privs(name)
+	for _, priv in ipairs({"fly", "fast", "noclip", "teleport", "give"}) do
+		privs[priv] = true
+	end
+	core.set_player_privs(name, privs)
+	player:override_day_night_ratio(1)
+	player:set_clouds({density = 0})
+
+	if SHOTS then
+		prepare_view(player)
+		player:set_pos({x = 0, y = BASE_Y, z = 0})
+		core.after(4, start_shots, name)
+		return
+	end
+
+	local inventory = player:get_inventory()
+	if not inventory:contains_item("main", "wl_catalog:plant_book") then
+		inventory:add_item("main", "wl_catalog:plant_book")
+	end
+	if player:get_pos().y < GROUND_BOTTOM or player:get_meta():get_int("wl_catalog_placed") == 0 then
+		player:get_meta():set_int("wl_catalog_placed", 1)
+		local first = plants.trees[1]
+		if first then
+			go_to(player, first)
+		else
+			player:set_pos({x = 0, y = BASE_Y, z = 0})
+		end
+	end
+	core.chat_send_player(name, "Katalog der Pflanzen: " .. #plants.nodes .. " Blöcke, " ..
+		#plants.trees .. " Bäume. /pflanzen zeigt die Tafeln der Blöcke, /baum die Reihen der Bäume, " ..
+		"/baum <Nummer> springt vor einen Baum, /beet <Nummer> vor das Beet einer Bodenpflanze. " ..
+		"Fliegen mit K.")
+end)
+
+core.register_on_leaveplayer(function(player)
+	local name = player:get_player_name()
+	states[name] = nil
+	huds[name] = nil
+end)
+
+core.log("action", "[wl_catalog] loaded")

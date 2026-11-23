@@ -5,6 +5,20 @@
 -- what they registered and shows the model itself, so nothing walks away
 -- or attacks.
 
+-- The plants world shows trees and plants instead. scripts/setup.sh marks
+-- it with a file in the world folder.
+do
+	local file = io.open(core.get_worldpath() .. "/catalog_set.txt", "r")
+	local set = file and file:read("*l")
+	if file then
+		file:close()
+	end
+	if set == "plants" then
+		dofile(core.get_modpath("wl_catalog") .. "/plants.lua")
+		return
+	end
+end
+
 local catalog = {
 	entries = {},   -- sorted list of creatures
 	by_id = {},     -- "N12" -> entry
