@@ -146,6 +146,11 @@ for which in creatures plants; do
 done
 echo "plants" > "$plants/catalog_set.txt"
 
+# The catalogue places trees and beds once, when the world is new. After a
+# change of the sources or of the mod they would stand in the wrong places
+# or be missing, so the map of the plants world is made anew each time.
+rm -f "$plants/map.sqlite" "$plants/mod_storage.sqlite"
+
 # The catalogue mod is linked, so changes apply without copying.
 rm -rf "$dev/mods/wl_catalog"
 ln -sfn "$repo/mods/wl_catalog" "$dev/mods/wl_catalog"

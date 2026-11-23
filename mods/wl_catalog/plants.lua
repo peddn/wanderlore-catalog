@@ -1451,6 +1451,15 @@ core.register_on_mods_loaded(function()
 		return a.order < b.order
 	end)
 
+	-- What stands where depends on the sources and on this file. A map
+	-- built for another arrangement cannot be repaired from here.
+	local arrangement = #plants.trees .. " " .. #plants.copies .. " " .. #plants.beds .. " " .. #plants.kinds
+	if built and storage:get_string("arrangement") ~= arrangement then
+		plants.outdated = true
+		core.log("warning", "[wl_catalog] the map was built for another arrangement; run scripts/setup.sh")
+	end
+	storage:set_string("arrangement", arrangement)
+
 	core.log("action", "[wl_catalog] plants: " .. #plants.nodes .. " blocks on " .. #pages ..
 		" pages, " .. #plants.trees .. " trees, " .. #plants.beds .. " beds from " .. #plants.sources .. " sources")
 	for _, source in ipairs(plants.sources) do
@@ -1503,6 +1512,11 @@ core.register_on_joinplayer(function(player)
 		else
 			player:set_pos({x = 0, y = BASE_Y, z = 0})
 		end
+	end
+	if plants.outdated then
+		core.chat_send_player(name, core.colorize("#ff6040", "Die Karte dieser Welt ist veraltet: Bäume und " ..
+			"Beete stehen nicht dort, wo die Listen hinspringen. Luanti beenden, scripts/setup.sh " ..
+			"ausführen, neu starten."))
 	end
 	core.chat_send_player(name, "Katalog der Pflanzen: " .. #plants.nodes .. " Blöcke, " ..
 		#plants.trees .. " Bäume. /quellen oder der Kristall im Inventar springt zu den Bäumen oder Beeten einer Quelle, " ..
