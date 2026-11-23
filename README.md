@@ -39,6 +39,7 @@ Nach dem Start öffnet sich der Katalog von selbst. Später öffnet ihn der Befe
 Die Welt der Pflanzen ist flach und kahl. Ihr Boden ist ein eigener Block mit einem Raster: jede Linie ein Block. Die Generatoren der Quellen laufen nicht, und nichts wächst, breitet sich aus oder zerfällt.
 
 - **`/pflanzen`** oder das Buch im Inventar öffnet die Tafeln der Blöcke. Jeder Block hat eine Nummer aus den Buchstaben der Quelle und einer Zahl, zum Beispiel `EB12`. Die Farbe des Feldes zeigt die Art: Stamm, Bretter, Laub, Setzling, Blume, Pilz, Pflanze, Wasserpflanze, Boden. Ein Klick legt den Block ins Inventar und nennt seinen technischen Namen.
+- **`/quellen`** oder der Kristall im Inventar öffnet die Liste der Quellen. Je Quelle springt ein Knopf zu ihrem ersten Baum und einer an den Anfang ihres Gangs der Beete.
 - **Die Bodenpflanzen** stehen als Beete von 5 × 5 in der Welt, weit weg von den Bäumen. Jede Quelle hat einen eigenen Gang: einen hellen Weg mit ihren Beeten links und rechts, am Anfang steht ihr Name. `/beet EB` springt an den Anfang des Gangs von Extra Biomes, `/beet EB12` vor ein Beet.
 - **Die Bäume** stehen in Reihen, eine Reihe je Quelle. Jeder Baum hat eine Nummer mit `-T`, zum Beispiel `MT-T13`; sie schwebt über dem Baum. `/baum` listet die Reihen, `/baum MT-T13` springt vor den Baum.
 - Fliegen mit `K`, schnell mit `J`.

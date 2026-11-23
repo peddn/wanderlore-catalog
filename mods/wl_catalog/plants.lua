@@ -840,6 +840,90 @@ core.register_chatcommand("beet", {
 	end,
 })
 
+--
+-- The list of sources: jump to the trees or the beds of one
+--
+
+local JUMPNAME = "wl_catalog:plants_jump"
+
+local function go_to_aisle(player, source)
+	player:set_pos({x = -4, y = BASE_Y, z = source.aisle_z})
+	player:set_look_horizontal(-math.pi / 2)
+	player:set_look_vertical(0)
+end
+
+local function show_jump(name)
+	local esc = core.formspec_escape
+	local rows = math.ceil(#plants.sources / 2)
+	local height = 1.3 + rows * 0.9 + 0.3
+	local fs = {
+		"formspec_version[7]size[21.4,", height, "]",
+		"style_type[label;font=bold]",
+		"label[0.4,0.6;Quellen – springe zu den Bäumen oder zum Gang der Beete]",
+		"style_type[label;font=normal]",
+	}
+	for index, source in ipairs(plants.sources) do
+		local x = 0.4 + (index > rows and 10.5 or 0)
+		local y = 1.2 + ((index - 1) % rows) * 0.9
+		local trees, beds = 0, 0
+		for _, tree in ipairs(plants.trees) do
+			trees = trees + (tree.source == source and 1 or 0)
+		end
+		for _, entry in ipairs(plants.beds) do
+			beds = beds + (entry.source == source and 1 or 0)
+		end
+		fs[#fs + 1] = "label[" .. x .. "," .. (y + 0.4) .. ";" ..
+			esc(source.prefix .. "  " .. source.title:sub(1, 30)) .. "]"
+		if source.first_tree then
+			fs[#fs + 1] = "button[" .. (x + 5.3) .. "," .. y .. ";2.4,0.8;tree_" .. index ..
+				";" .. esc(trees .. " Bäume") .. "]"
+		end
+		if source.aisle_z then
+			fs[#fs + 1] = "button[" .. (x + 7.8) .. "," .. y .. ";2.4,0.8;aisle_" .. index ..
+				";" .. esc(beds .. " Beete") .. "]"
+		end
+	end
+	core.show_formspec(name, JUMPNAME, table.concat(fs))
+end
+
+core.register_on_player_receive_fields(function(player, formname, fields)
+	if formname ~= JUMPNAME then
+		return false
+	end
+	local name = player:get_player_name()
+	for field in pairs(fields) do
+		local kind, index = field:match("^(%a+)_(%d+)$")
+		local source = index and plants.sources[tonumber(index)]
+		if source and kind == "tree" and source.first_tree then
+			go_to(player, source.first_tree)
+			core.close_formspec(name, JUMPNAME)
+			core.chat_send_player(name, source.title .. ": " .. source.first_tree.id .. " bis " ..
+				source.last_tree.id .. ". Die Reihe läuft nach rechts.")
+		elseif source and kind == "aisle" and source.aisle_z then
+			go_to_aisle(player, source)
+			core.close_formspec(name, JUMPNAME)
+			core.chat_send_player(name, "Gang von " .. source.title .. ". Er läuft geradeaus.")
+		end
+	end
+	return true
+end)
+
+core.register_chatcommand("quellen", {
+	description = "Öffnet die Liste der Quellen, um zu ihren Bäumen oder Beeten zu springen",
+	func = function(name)
+		show_jump(name)
+		return true
+	end,
+})
+
+core.register_craftitem("wl_catalog:plant_compass", {
+	description = "Quellen: zu Bäumen und Beeten springen",
+	inventory_image = "default_mese_crystal.png",
+	on_use = function(_, user)
+		show_jump(user:get_player_name())
+	end,
+})
+
 core.register_craftitem("wl_catalog:plant_book", {
 	description = "Tafeln der Pflanzen",
 	inventory_image = "default_book.png",
@@ -1137,8 +1221,10 @@ core.register_on_joinplayer(function(player)
 	end
 
 	local inventory = player:get_inventory()
-	if not inventory:contains_item("main", "wl_catalog:plant_book") then
-		inventory:add_item("main", "wl_catalog:plant_book")
+	for _, item in ipairs({"wl_catalog:plant_book", "wl_catalog:plant_compass"}) do
+		if not inventory:contains_item("main", item) then
+			inventory:add_item("main", item)
+		end
 	end
 	if player:get_pos().y < GROUND_BOTTOM or player:get_meta():get_int("wl_catalog_placed") == 0 then
 		player:get_meta():set_int("wl_catalog_placed", 1)
@@ -1150,7 +1236,8 @@ core.register_on_joinplayer(function(player)
 		end
 	end
 	core.chat_send_player(name, "Katalog der Pflanzen: " .. #plants.nodes .. " Blöcke, " ..
-		#plants.trees .. " Bäume. /pflanzen zeigt die Tafeln der Blöcke, /baum die Reihen der Bäume, " ..
+		#plants.trees .. " Bäume. /quellen oder der Kristall im Inventar springt zu den Bäumen oder Beeten einer Quelle. " ..
+		"/pflanzen zeigt die Tafeln der Blöcke, /baum die Reihen der Bäume, " ..
 		"/baum <Nummer> springt vor einen Baum, /beet <Nummer> vor das Beet einer Bodenpflanze. " ..
 		"Fliegen mit K.")
 end)
