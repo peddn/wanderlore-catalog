@@ -2,8 +2,12 @@
 """Puts the pictures of trees taken by scripts/shots_plants.sh on sheets.
 
 Usage: sheets_plants.py <folder with pictures> <folder for the sheets> <kind>
+       sheets_plants.py <pictures of trees> <folder for the sheets> kinds <table>
 
-The kind is "trees" or "beds". A picture is named
+The kind is "trees" or "beds"; "kinds" puts the trees on sheets by family
+and group instead of by source, after the table catalog_kinds.tsv that the
+mod writes into the world folder. In that case the species, the name of
+the trunk block, stands under each tree. A picture is named
 "<number> <id> <name> <note>.png". The id starts with the letters of the
 source; the note is width x height for a tree and the category for a bed.
 """
@@ -31,12 +35,35 @@ def load_font(size):
     return ImageFont.load_default()
 
 
+def by_kind(shots, table):
+    """Groups the pictures of trees by the rows of the file the mod wrote."""
+    pictures = {}
+    for path in glob.glob(os.path.join(shots, "*.png")):
+        _, tree_id, name, size = os.path.basename(path)[:-4].split(" ", 3)
+        pictures[tree_id] = (name, size, path)
+    groups, order = {}, []
+    with open(table, encoding="utf-8") as file:
+        for line in file:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 4 or parts[2] not in pictures:
+                continue
+            title = "%02d %s" % (int(parts[0]), parts[1])
+            name, size, path = pictures[parts[2]]
+            if title not in groups:
+                groups[title] = []
+                order.append(title)
+            groups[title].append((parts[2], parts[3] or name, size, path))
+    return groups, order
+
+
 def main():
     shots, out, kind = sys.argv[1], sys.argv[2], sys.argv[3]
-    heading = {"trees": "Bäume", "beds": "Beete"}[kind]
+    heading = {"trees": "Bäume", "beds": "Beete", "kinds": "Bäume nach Art"}[kind]
     os.makedirs(out, exist_ok=True)
     groups, order = {}, []
-    for path in sorted(glob.glob(os.path.join(shots, "*.png"))):
+    if kind == "kinds":
+        groups, order = by_kind(shots, sys.argv[4])
+    for path in sorted(glob.glob(os.path.join(shots, "*.png"))) if kind != "kinds" else []:
         _, tree_id, name, size = os.path.basename(path)[:-4].split(" ", 3)
         prefix = re.match("[A-Z]+", tree_id).group(0)
         if prefix not in groups:
@@ -54,6 +81,8 @@ def main():
             sheet = Image.new("RGB", (COLUMNS * TILE, HEAD + rows * (TILE + LABEL)), (22, 24, 28))
             draw = ImageDraw.Draw(sheet)
             title = "%s bis %s" % (chunk[0][0], chunk[-1][0])
+            if kind == "kinds":
+                title = "%s  (%d)" % (prefix[3:], len(group))
             draw.text((10, 10), heading + "  " + title, fill=(255, 255, 255), font=title_font)
             for index, (tree_id, name, size, path) in enumerate(chunk):
                 picture = Image.open(path).convert("RGB")
@@ -73,7 +102,8 @@ def main():
                           fill=(190, 196, 204), font=small)
             count += 1
             number = start // PER_SHEET + 1
-            sheet.save(os.path.join(out, "%s_%s_%02d.jpg" % (kind, prefix, number)), quality=90)
+            label = re.sub("[^A-Za-z0-9äöüÄÖÜß]+", "_", prefix).strip("_")
+            sheet.save(os.path.join(out, "%s_%s_%02d.jpg" % (kind, label, number)), quality=90)
     print("%d sheets of %s" % (count, kind))
 
 

@@ -238,16 +238,6 @@ repo = "https://github.com/Skandarella/livingfloatlands"
 commit = "411a5acf3196d6d5f39da92ece450c70ed076dac"
 license = "MIT (code), MIT (media)"
 
-[australia]
-title = "Australia"
-role = "content"
-set = "plants"
-mod = "australia"
-prefix = "AU"
-repo = "https://github.com/vlapsley/australia"
-commit = "8dbb7acebf5bad89768ab0f6a6c76b71a1cf075f"
-license = "AGPL-2.0-only (code), AGPL-2.0-only (media)"
-
 [aotearoa]
 title = "Aotearoa"
 role = "content"
@@ -256,7 +246,7 @@ mod = "aotearoa"
 prefix = "AO"
 repo = "https://github.com/DokimiCU/aotearoa"
 commit = "6d130cd7352795818feed6293ec0998f5747c2d2"
-license = "see README.md of the source"
+license = "LGPL-2.0-or-later (code), CC-BY-SA-3.0 (textures), as stated in README.md"
 
 [terraria]
 title = "Better Biomes"

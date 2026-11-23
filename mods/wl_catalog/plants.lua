@@ -208,10 +208,31 @@ local function inspect(schematic)
 		return nil
 	end
 	local mods, found, trunks = {}, 0, 0
+	-- What it is made of: how many blocks of each kind, and which trunk
+	-- block most often.
+	local made = {total = 0, trunk = 0, leaves = 0, plant = 0, other = 0}
+	local trunk_count = {}
 	for _, node in ipairs(read.data) do
 		local name = resolve(node.name)
 		local kind = plant_category[name]
-		if kind and kind ~= "ground" and (node.prob or 255) > 0 then
+		local present = name ~= "air" and name ~= "ignore" and (node.prob or 255) > 0
+		if present then
+			made.total = made.total + 1
+			if kind == "trunk" then
+				made.trunk = made.trunk + 1
+				trunk_count[name] = (trunk_count[name] or 0) + 1
+				if not made.trunk_node or trunk_count[name] > trunk_count[made.trunk_node] then
+					made.trunk_node = name
+				end
+			elseif kind == "leaves" then
+				made.leaves = made.leaves + 1
+			elseif kind and kind ~= "ground" and kind ~= "planks" then
+				made.plant = made.plant + 1
+			else
+				made.other = made.other + 1
+			end
+		end
+		if kind and kind ~= "ground" and present then
 			found = found + 1
 			if kind == "trunk" then
 				trunks = trunks + 1
@@ -226,7 +247,7 @@ local function inspect(schematic)
 			best, most = mod, number
 		end
 	end
-	return read.size, found, best, trunks
+	return read.size, found, best, trunks, made
 end
 
 local function mod_of_path(path)
@@ -248,7 +269,7 @@ local function collect_trees()
 	local list, seen = {}, {}
 
 	local function add(schematic, name, mod, offset)
-		local size, found, guess, trunks = inspect(schematic)
+		local size, found, guess, trunks, made = inspect(schematic)
 		if not size or found == 0 then
 			return
 		end
@@ -269,6 +290,7 @@ local function collect_trees()
 			w = size.x, h = size.y, d = size.z,
 			offset = offset or 0,
 			trunks = trunks,
+			made = made,
 			schematic = schematic,
 		}
 	end
@@ -347,6 +369,8 @@ local function collect_trees()
 					w = 40, h = 60, d = 40,
 					offset = 0,
 					grown = true,
+					made = {total = 2, trunk = 1, leaves = 1, plant = 0, other = 0,
+						trunk_node = "moretrees:" .. tree .. "_trunk"},
 					grow = function(pos)
 						if type(grow) == "function" then
 							grow(pos)
@@ -375,6 +399,87 @@ local function collect_trees()
 		plants.tree_by_id[entry.id] = entry
 	end
 	plants.trees = list
+end
+
+--
+-- Kinds of trees
+--
+-- Besides its source every entry has a group: a tree, a bush, a log, a
+-- group of plants or a structure. Trees also have a family, guessed from
+-- their name, such as all birches of all sources, and within it a species:
+-- the trees built from the same trunk block.
+
+-- Families in the order they are shown. A word in braces has to be a whole
+-- word of the name, the others may be part of one.
+local FAMILIES = {
+	{"Birke", {"birch"}},
+	{"Buche", {"beech"}},
+	{"Eiche", {"{oak}", "oak_"}},
+	{"Ahorn", {"maple"}},
+	{"Pappel und Espe", {"poplar", "aspen"}},
+	{"Weide", {"willow"}},
+	{"Apfel", {"apple"}},
+	{"Kirsche", {"cherry", "sakura"}},
+	{"Zitrus", {"lemon", "orange", "citrus"}},
+	{"Obstbaum", {"pear", "plum", "peach", "apricot", "olive", "banana", "mango", "fig"}},
+	{"Kiefer", {"pine"}},
+	{"Tanne und Fichte", {"{fir}", "fir_", "spruce"}},
+	{"Zeder, Lärche, Zypresse", {"cedar", "larch", "cypress"}},
+	{"Mammutbaum", {"redwood", "sequoia"}},
+	{"Akazie", {"acacia"}},
+	{"Palme", {"palm", "coconut"}},
+	{"Dschungelbaum", {"jungle", "samauma"}},
+	{"Mangrove", {"mangrove"}},
+	{"Bambus", {"bamboo"}},
+	{"Kaktus", {"cactus", "cacti"}},
+	{"Riesenpilz", {"mushroom", "shroom"}},
+	{"Baobab", {"baobab"}},
+}
+
+local function family_of(text)
+	text = text:lower()
+	local words = {}
+	for word in text:gmatch("%a+") do
+		words[word] = true
+	end
+	for _, family in ipairs(FAMILIES) do
+		for _, key in ipairs(family[2]) do
+			local whole = key:match("^{(.*)}$")
+			if whole and words[whole] or not whole and text:find(key, 1, true) then
+				return family[1]
+			end
+		end
+	end
+	return nil
+end
+
+local GROUPS = {"Bäume", "Büsche", "Stämme und Stümpfe", "Pflanzengruppen", "Strukturen und Gebäude"}
+
+local function classify(tree)
+	local made = tree.made
+	local group
+	if made.other > made.total / 2 then
+		group = 5
+	elseif made.trunk > 0 and made.leaves > 0 then
+		group = tree.h > 4 and 1 or 2
+	elseif made.trunk > 0 then
+		group = 3
+	elseif made.leaves > 0 then
+		group = tree.h > 6 and 1 or 2
+	else
+		group = 4
+	end
+	tree.group = GROUPS[group]
+	tree.species = made.trunk_node and made.trunk_node:match(":(.*)$") or ""
+	if group == 1 then
+		tree.family = family_of(tree.name .. " " .. tree.species)
+		-- A tree without a known name stays with its source.
+		tree.row = tree.family or ("Sonstige Bäume – " .. tree.source.title)
+		tree.row_order = tree.family and 1 or 2
+	else
+		tree.row = tree.group
+		tree.row_order = 1 + group
+	end
 end
 
 --
@@ -410,6 +515,58 @@ local function lay_out()
 		tree.x = x + math.floor(slot / 2)
 		tree.z = tree.source.row_z
 		x = x + slot
+	end
+end
+
+-- Every tree stands a second time, in rows by kind: a row per family,
+-- then the trees without one by source, then bushes, logs, groups of
+-- plants and structures. Within a row the trees of one species stand
+-- together. These rows lie beyond the beds.
+local KIND_Z = -4000
+plants.kinds = {}       -- the rows by kind, in order
+plants.copies = {}      -- the second standing of each tree
+
+local function lay_out_kinds()
+	local family_order = {}
+	for index, family in ipairs(FAMILIES) do
+		family_order[family[1]] = index
+	end
+	local list = {}
+	for _, tree in ipairs(plants.trees) do
+		classify(tree)
+		list[#list + 1] = tree
+	end
+	table.sort(list, function(a, b)
+		if a.row_order ~= b.row_order then
+			return a.row_order < b.row_order
+		elseif a.row ~= b.row then
+			if a.family and b.family then
+				return family_order[a.family] < family_order[b.family]
+			end
+			return a.source.order < b.source.order
+		elseif a.species ~= b.species then
+			return a.species < b.species
+		elseif a.h ~= b.h then
+			return a.h < b.h
+		end
+		return a.id < b.id
+	end)
+	local x, row
+	for _, tree in ipairs(list) do
+		if not row or row.title ~= tree.row then
+			row = {title = tree.row, z = KIND_Z - #plants.kinds * ROW_GAP, trees = {}}
+			plants.kinds[#plants.kinds + 1] = row
+			x = 0
+			plants.signs[#plants.signs + 1] = {
+				pos = {x = -10, y = BASE_Y + 6, z = row.z},
+				text = row.title,
+			}
+		end
+		local slot = math.ceil(view_of(tree))
+		local copy = setmetatable({x = x + math.floor(slot / 2), z = row.z, copy_of = tree}, {__index = tree})
+		x = x + slot
+		row.trees[#row.trees + 1] = copy
+		plants.copies[#plants.copies + 1] = copy
 	end
 end
 
@@ -570,12 +727,13 @@ local function place(tree)
 			core.log("warning", "[wl_catalog] " .. tree.id .. " did not grow: " .. tostring(err))
 		end
 		local size = measure(tree)
+		local key = tree.copy_of and tree.id .. " copy" or tree.id
 		if size then
-			measured[tree.id] = size
+			measured[key] = size
 			apply_measure(tree, size)
 		else
 			tree.failed = true
-			measured[tree.id] = {failed = true}
+			measured[key] = {failed = true}
 		end
 	else
 		local ok, result = pcall(core.place_schematic, pos, tree.schematic, "0", nil, false,
@@ -583,7 +741,7 @@ local function place(tree)
 		if not ok or not result then
 			core.log("warning", "[wl_catalog] " .. tree.id .. " could not be placed: " .. tostring(result))
 			tree.failed = true
-			measured[tree.id] = {failed = true}
+			measured[tree.copy_of and tree.id .. " copy" or tree.id] = {failed = true}
 		end
 	end
 end
@@ -591,14 +749,14 @@ end
 -- Places the trees one after the other. Each waits until the generator
 -- has laid the ground below it.
 local function build(index)
-	local tree = plants.trees[index]
+	local tree = plants.trees[index] or plants.copies[index - #plants.trees]
 	if not tree then
-		local entry = plants.beds[index - #plants.trees]
+		local entry = plants.beds[index - #plants.trees - #plants.copies]
 		if not entry then
 			storage:set_int("built", 1)
 			storage:set_string("measured", core.serialize(measured))
 			built = true
-			core.log("action", "[wl_catalog] BUILT " .. #plants.trees .. " trees, " ..
+			core.log("action", "[wl_catalog] BUILT " .. #plants.trees .. " trees twice, " ..
 				#plants.beds .. " beds")
 			return
 		end
@@ -652,6 +810,22 @@ local function paginate()
 		end
 		page.entries[#page.entries + 1] = entry
 	end
+	-- Trunks, planks and leaves once more, those of all sources side by
+	-- side, to compare them.
+	for _, kind in ipairs({"trunk", "planks", "leaves"}) do
+		local group = {prefix = kind:upper(), title = CATEGORY_LABEL[kind] .. " aller Quellen",
+			license = "je Quelle, siehe deren Tafel", order = 1000 + CATEGORY_ORDER[kind]}
+		page = nil
+		for _, entry in ipairs(plants.nodes) do
+			if entry.category == kind then
+				if not page or #page.entries == PER_PAGE then
+					page = {source = group, entries = {}, across = true}
+					pages[#pages + 1] = page
+				end
+				page.entries[#page.entries + 1] = entry
+			end
+		end
+	end
 	local number = {}
 	for _, one in ipairs(pages) do
 		number[one.source] = (number[one.source] or 0) + 1
@@ -669,9 +843,11 @@ local function page_formspec(index, buttons)
 		"formspec_version[7]size[", PAGE_W, ",", PAGE_H, "]",
 		"bgcolor[#22262cff;true]box[0,0;", PAGE_W, ",", PAGE_H, ";#22262c]",
 		"style_type[label;font_size=*1.25;font=bold]",
-		"label[0.3,0.45;", esc(page.source.prefix .. "  " .. page.source.title .. "  –  " ..
+		"label[0.3,0.45;", esc(page.across and (page.source.title ..
+			"  (Seite " .. page.number .. " von " .. page.of .. ")") or
+			(page.source.prefix .. "  " .. page.source.title .. "  –  " ..
 			page.entries[1].id .. " bis " .. page.entries[#page.entries].id ..
-			"  (Seite " .. page.number .. " von " .. page.of .. ")"), "]",
+			"  (Seite " .. page.number .. " von " .. page.of .. ")")), "]",
 		"style_type[label;font_size=*0.8;font=normal]",
 		"label[", PAGE_W - 9.2, ",0.45;", esc("Lizenz: " .. page.source.license:sub(1, 70)), "]",
 	}
@@ -713,8 +889,8 @@ local function show(name)
 	state.page = math.max(1, math.min(#pages, state.page))
 	local esc = core.formspec_escape
 	local titles, selected = {}, 1
-	for index, source in ipairs(plants.sources) do
-		titles[index] = esc(source.prefix .. " " .. source.title)
+	for index, source in ipairs(plants.page_groups) do
+		titles[index] = esc(source.across and source.title or source.prefix .. " " .. source.title)
 		if source == pages[state.page].source then
 			selected = index
 		end
@@ -742,9 +918,9 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 		state.page = (state.page - 2) % #pages + 1
 	elseif fields.next then
 		state.page = state.page % #pages + 1
-	elseif fields.source and plants.sources[tonumber(fields.source)]
-			and plants.sources[tonumber(fields.source)] ~= pages[state.page].source then
-		local source = plants.sources[tonumber(fields.source)]
+	elseif fields.source and plants.page_groups[tonumber(fields.source)]
+			and plants.page_groups[tonumber(fields.source)] ~= pages[state.page].source then
+		local source = plants.page_groups[tonumber(fields.source)]
 		for index, page in ipairs(pages) do
 			if page.source == source then
 				state.page = index
@@ -908,6 +1084,58 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 	return true
 end)
 
+local KINDNAME = "wl_catalog:plants_kinds"
+
+local function show_kinds(name)
+	local esc = core.formspec_escape
+	local columns = 3
+	local rows = math.ceil(#plants.kinds / columns)
+	local fs = {
+		"formspec_version[7]size[21.4,", 1.3 + rows * 0.9 + 0.3, "]",
+		"style_type[label;font=bold]",
+		"label[0.4,0.6;Bäume nach Art – jede Reihe zeigt die Bäume aller Quellen]",
+	}
+	for index, row in ipairs(plants.kinds) do
+		local x = 0.4 + math.floor((index - 1) / rows) * 7
+		local y = 1.2 + ((index - 1) % rows) * 0.9
+		fs[#fs + 1] = "button[" .. x .. "," .. y .. ";6.8,0.8;kind_" .. index .. ";" ..
+			esc(row.title:sub(1, 40) .. "  (" .. #row.trees .. ")") .. "]"
+	end
+	core.show_formspec(name, KINDNAME, table.concat(fs))
+end
+
+core.register_on_player_receive_fields(function(player, formname, fields)
+	if formname ~= KINDNAME then
+		return false
+	end
+	local name = player:get_player_name()
+	for field in pairs(fields) do
+		local row = plants.kinds[tonumber(field:match("^kind_(%d+)$") or "")]
+		if row then
+			go_to(player, row.trees[1])
+			core.close_formspec(name, KINDNAME)
+			core.chat_send_player(name, row.title .. ": " .. #row.trees .. " Einträge. Die Reihe läuft nach rechts.")
+		end
+	end
+	return true
+end)
+
+core.register_chatcommand("arten", {
+	description = "Öffnet die Liste der Baumarten, um zu ihren Reihen zu springen",
+	func = function(name)
+		show_kinds(name)
+		return true
+	end,
+})
+
+core.register_craftitem("wl_catalog:plant_kinds", {
+	description = "Bäume nach Art: zu einer Reihe springen",
+	inventory_image = "default_diamond.png",
+	on_use = function(_, user)
+		show_kinds(user:get_player_name())
+	end,
+})
+
 core.register_chatcommand("quellen", {
 	description = "Öffnet die Liste der Quellen, um zu ihren Bäumen oder Beeten zu springen",
 	func = function(name)
@@ -955,6 +1183,23 @@ local function update_huds()
 			elseif not near and shown[tree.id] then
 				player:hud_remove(shown[tree.id])
 				shown[tree.id] = nil
+			end
+		end
+		for _, tree in ipairs(plants.copies) do
+			local key = tree.id .. " copy"
+			local near = math.abs(tree.z - pos.z) < 160 and math.abs(tree.x - pos.x) < 140
+			if near and not shown[key] then
+				shown[key] = player:hud_add({
+					type = "waypoint",
+					name = tree.id .. " " .. tree.name,
+					text = "",
+					precision = 0,
+					number = 0xFFFFFF,
+					world_pos = {x = tree.x, y = BASE_Y + tree.h + tree.offset + 2, z = tree.z},
+				})
+			elseif not near and shown[key] then
+				player:hud_remove(shown[key])
+				shown[key] = nil
 			end
 		end
 		for index, sign in ipairs(plants.signs) do
@@ -1106,7 +1351,7 @@ local function shoot_pages(name, index)
 		core.after(1.0, shoot_trees, name, 1)
 		return
 	end
-	if not wanted(page.source) then
+	if not page.across and not wanted(page.source) then
 		return shoot_pages(name, index + 1)
 	end
 	core.show_formspec(name, SHOTNAME, page_formspec(index, false))
@@ -1154,8 +1399,32 @@ core.register_on_mods_loaded(function()
 	end
 	collect_trees()
 	lay_out()
+	lay_out_kinds()
 	lay_out_beds()
 	paginate()
+	plants.page_groups = {}
+	for _, page in ipairs(pages) do
+		if plants.page_groups[#plants.page_groups] ~= page.source then
+			page.source.across = page.across
+			plants.page_groups[#plants.page_groups + 1] = page.source
+		end
+	end
+	for _, copy in ipairs(plants.copies) do
+		local size = measured[copy.id .. " copy"]
+		if size and size.failed then
+			copy.failed = true
+		elseif size then
+			apply_measure(copy, size)
+		end
+	end
+	-- For the sheets by kind: which tree stands in which row.
+	local lines = {}
+	for index, row in ipairs(plants.kinds) do
+		for _, copy in ipairs(row.trees) do
+			lines[#lines + 1] = table.concat({index, row.title, copy.id, copy.species}, "\t")
+		end
+	end
+	core.safe_file_write(core.get_worldpath() .. "/catalog_kinds.tsv", table.concat(lines, "\n") .. "\n")
 
 	local seen = {}
 	local function note(source)
@@ -1221,7 +1490,7 @@ core.register_on_joinplayer(function(player)
 	end
 
 	local inventory = player:get_inventory()
-	for _, item in ipairs({"wl_catalog:plant_book", "wl_catalog:plant_compass"}) do
+	for _, item in ipairs({"wl_catalog:plant_book", "wl_catalog:plant_compass", "wl_catalog:plant_kinds"}) do
 		if not inventory:contains_item("main", item) then
 			inventory:add_item("main", item)
 		end
@@ -1236,7 +1505,8 @@ core.register_on_joinplayer(function(player)
 		end
 	end
 	core.chat_send_player(name, "Katalog der Pflanzen: " .. #plants.nodes .. " Blöcke, " ..
-		#plants.trees .. " Bäume. /quellen oder der Kristall im Inventar springt zu den Bäumen oder Beeten einer Quelle. " ..
+		#plants.trees .. " Bäume. /quellen oder der Kristall im Inventar springt zu den Bäumen oder Beeten einer Quelle, " ..
+		"/arten oder der Diamant zu den Bäumen nach Art. " ..
 		"/pflanzen zeigt die Tafeln der Blöcke, /baum die Reihen der Bäume, " ..
 		"/baum <Nummer> springt vor einen Baum, /beet <Nummer> vor das Beet einer Bodenpflanze. " ..
 		"Fliegen mit K.")

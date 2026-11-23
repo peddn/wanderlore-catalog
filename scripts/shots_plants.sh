@@ -84,5 +84,6 @@ while kill -0 "$luanti" 2>/dev/null; do
 done
 
 python3 "$repo/scripts/sheets_plants.py" "$shots" "$sheets" trees
+python3 "$repo/scripts/sheets_plants.py" "$shots" "$sheets" kinds "$dev/worlds/plants/catalog_kinds.tsv"
 python3 "$repo/scripts/sheets_plants.py" "$beds" "$sheets" beds
 echo "Sheets are in $sheets"

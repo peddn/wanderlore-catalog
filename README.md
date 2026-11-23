@@ -40,6 +40,7 @@ Die Welt der Pflanzen ist flach und kahl. Ihr Boden ist ein eigener Block mit ei
 
 - **`/pflanzen`** oder das Buch im Inventar öffnet die Tafeln der Blöcke. Jeder Block hat eine Nummer aus den Buchstaben der Quelle und einer Zahl, zum Beispiel `EB12`. Die Farbe des Feldes zeigt die Art: Stamm, Bretter, Laub, Setzling, Blume, Pilz, Pflanze, Wasserpflanze, Boden. Ein Klick legt den Block ins Inventar und nennt seinen technischen Namen.
 - **`/quellen`** oder der Kristall im Inventar öffnet die Liste der Quellen. Je Quelle springt ein Knopf zu ihrem ersten Baum und einer an den Anfang ihres Gangs der Beete.
+- **`/arten`** oder der Diamant im Inventar öffnet die Liste der Baumarten. Jeder Baum steht ein zweites Mal in Reihen nach Art, weit hinter den Beeten: erst die Familien, etwa alle Birken aller Quellen, dann die Bäume ohne bekannten Namen je Quelle, dann Büsche, Stämme und Stümpfe, Pflanzengruppen sowie Strukturen und Gebäude. In einer Reihe stehen die Bäume mit demselben Stamm-Block nebeneinander. Die Familie ist aus dem Namen geraten und trifft nicht immer.
 - **Die Bodenpflanzen** stehen als Beete von 5 × 5 in der Welt, weit weg von den Bäumen. Jede Quelle hat einen eigenen Gang: einen hellen Weg mit ihren Beeten links und rechts, am Anfang steht ihr Name. `/beet EB` springt an den Anfang des Gangs von Extra Biomes, `/beet EB12` vor ein Beet.
 - **Die Bäume** stehen in Reihen, eine Reihe je Quelle. Jeder Baum hat eine Nummer mit `-T`, zum Beispiel `MT-T13`; sie schwebt über dem Baum. `/baum` listet die Reihen, `/baum MT-T13` springt vor den Baum.
 - Fliegen mit `K`, schnell mit `J`.
@@ -79,7 +80,6 @@ Eine Quelle hinzufügen: einen Abschnitt in `sources.toml` ergänzen und `script
 | LJ | Wilhelmines Living Jungle | 19 | 10 |
 | LD | Wilhelmines Living Desert | 50 | 25 |
 | LF | Wilhelmines Living Floatlands | 69 | 35 |
-| AU | Australia | 238 | 111 |
 | AO | Aotearoa | 138 | 64 |
 | BB | Better Biomes | 20 | 44 |
 | SW | Swamp Biome | 11 | 7 |
@@ -97,13 +97,13 @@ Eine Quelle hinzufügen: einen Abschnitt in `sources.toml` ergänzen und `script
 | MF | Moonflowers | 1 | 0 |
 | DS | Decorations Sea | 20 | 24 |
 
-Zusammen 1781 Blöcke und 598 Bäume; 782 der Blöcke sind Bodenpflanzen und stehen als Beet in der Welt. Dazu kommen die Bibliotheken XCompat und Biome Lib. Gesucht wurden die Quellen am 23.11.2026 auf ContentDB.
+Zusammen 1543 Blöcke und 487 Einträge unter den Bäumen; 707 der Blöcke sind Bodenpflanzen und stehen als Beet in der Welt. Dazu kommen die Bibliotheken XCompat und Biome Lib. Gesucht wurden die Quellen am 23.11.2026 auf ContentDB. Australia war zuerst dabei und ist gestrichen.
 
 ## Übersichtsbilder
 
 `scripts/shots.sh` nimmt von jedem Wesen ein Bild auf und setzt sie zu Übersichten in `.dev/sheets/` zusammen. Das läuft auf einem unsichtbaren Bildschirm und braucht Xvfb, ImageMagick und Python 3 mit Pillow.
 
-`scripts/shots.sh plants` macht dasselbe für die Pflanzen, nach `.dev/sheets-plants/`: die Tafeln der Blöcke als `blocks_<Quelle>_<Seite>.png`, die Bäume als `trees_<Quelle>_<Seite>.jpg`, die Beete als `beds_<Quelle>_<Seite>.jpg`. Unter jedem Baum stehen Nummer, Name und Breite mal Höhe in Blöcken. Mit `scripts/shots.sh plants "MT EB"` nur für einzelne Quellen, mit einem dritten Wort nur für eine Art von Bildern: `scripts/shots.sh plants "" beds`. Alles zusammen dauert auf einem Bildschirm ohne Grafikkarte gut eine Stunde.
+`scripts/shots.sh plants` macht dasselbe für die Pflanzen, nach `.dev/sheets-plants/`: die Tafeln der Blöcke als `blocks_<Quelle>_<Seite>.png`, die Bäume als `trees_<Quelle>_<Seite>.jpg`, die Beete als `beds_<Quelle>_<Seite>.jpg`, die Bäume nach Art als `kinds_<Nummer>_<Art>_<Seite>.jpg`, mit dem Namen des Stamm-Blocks unter jedem Baum. Stämme, Bretter und Laub aller Quellen stehen zusätzlich nebeneinander auf `blocks_TRUNK_…`, `blocks_PLANKS_…` und `blocks_LEAVES_…`. Unter jedem Baum stehen Nummer, Name und Breite mal Höhe in Blöcken. Mit `scripts/shots.sh plants "MT EB"` nur für einzelne Quellen, mit einem dritten Wort nur für eine Art von Bildern: `scripts/shots.sh plants "" beds`. Alles zusammen dauert auf einem Bildschirm ohne Grafikkarte gut eine Stunde.
 
 ## Grenzen
 
