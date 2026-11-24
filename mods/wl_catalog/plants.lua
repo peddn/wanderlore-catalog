@@ -590,6 +590,47 @@ local function viewpoint(tree)
 end
 
 --
+-- Planks to walk along
+--
+-- Every kind of planks of the sources as a small wall, side by side, to
+-- choose the planks of a wood category. The row lies near the selection.
+
+local PLANK_Z, PLANK_SLOT = -3120, 5
+plants.planks = {}
+
+local function lay_out_planks()
+	for _, entry in ipairs(plants.nodes) do
+		if entry.category == "planks" then
+			entry.plank_x = #plants.planks * PLANK_SLOT
+			plants.planks[#plants.planks + 1] = entry
+		end
+	end
+	plants.signs[#plants.signs + 1] = {
+		pos = {x = -8, y = BASE_Y + 5, z = PLANK_Z},
+		text = "Bretter aller Quellen",
+	}
+end
+
+local function place_planks(entry)
+	local p1 = {x = entry.plank_x - 1, y = BASE_Y, z = PLANK_Z}
+	local p2 = {x = entry.plank_x + 1, y = BASE_Y + 2, z = PLANK_Z + 1}
+	local vmanip = VoxelManip()
+	local emin, emax = vmanip:read_from_map(p1, p2)
+	local area = VoxelArea(emin, emax)
+	local data = vmanip:get_data()
+	local content = core.get_content_id(entry.name)
+	for z = p1.z, p2.z do
+		for y = p1.y, p2.y do
+			for x = p1.x, p2.x do
+				data[area:index(x, y, z)] = content
+			end
+		end
+	end
+	vmanip:set_data(data)
+	vmanip:write_to_map(true)
+end
+
+--
 -- The selection
 --
 -- selection.lua lists what the author chose for Wanderlore. Each chosen
@@ -676,7 +717,7 @@ local function lay_out_selection()
 			row = row + 1
 			plants.signs[#plants.signs + 1] = {
 				pos = {x = -10, y = BASE_Y + 6, z = z},
-				text = "Auswahl: " .. species.title,
+				text = "Auswahl: " .. species.title .. (species.category and " (" .. species.category .. ")" or ""),
 			}
 			local x = 0
 			for index, form in ipairs(species.forms) do
@@ -978,7 +1019,22 @@ local function build(index)
 	local tree = plants.trees[index] or plants.copies[index - #plants.trees]
 		or plants.selected[index - #plants.trees - #plants.copies]
 	if not tree then
-		local entry = plants.beds[index - #plants.trees - #plants.copies - #plants.selected]
+		local past = index - #plants.trees - #plants.copies - #plants.selected
+		local plank = plants.planks[past]
+		if plank then
+			local p1 = {x = plank.plank_x - 2, y = GROUND_BOTTOM, z = PLANK_Z - 2}
+			local p2 = {x = plank.plank_x + 2, y = BASE_Y + 3, z = PLANK_Z + 3}
+			core.emerge_area(p1, p2, function(_, _, remaining)
+				if remaining == 0 then
+					core.after(0, function()
+						pcall(place_planks, plank)
+						build(index + 1)
+					end)
+				end
+			end)
+			return
+		end
+		local entry = plants.beds[past - #plants.planks]
 		if not entry then
 			storage:set_int("built", 1)
 			storage:set_string("measured", core.serialize(measured))
@@ -1365,6 +1421,20 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 	return true
 end)
 
+core.register_chatcommand("bretter", {
+	description = "Springt zu den Brettern aller Quellen, als kleine Wände nebeneinander",
+	func = function(name)
+		local player = core.get_player_by_name(name)
+		if not player or not plants.planks[1] then
+			return false
+		end
+		player:set_pos({x = 0, y = BASE_Y, z = PLANK_Z - 6})
+		player:set_look_horizontal(0)
+		player:set_look_vertical(0)
+		return true, #plants.planks .. " Bretter. Die Reihe läuft nach rechts."
+	end,
+})
+
 core.register_chatcommand("auswahl", {
 	description = "Springt zur Auswahl für Wanderlore: die gewählten Formen mit den gewählten Blöcken",
 	func = function(name)
@@ -1454,6 +1524,23 @@ local function update_huds()
 					precision = 0,
 					number = 0xFFFFFF,
 					world_pos = {x = tree.x, y = BASE_Y + tree.h + tree.offset + 2, z = tree.z},
+				})
+			elseif not near and shown[key] then
+				player:hud_remove(shown[key])
+				shown[key] = nil
+			end
+		end
+		for _, entry in ipairs(plants.planks) do
+			local key = entry.id .. " planks"
+			local near = math.abs(PLANK_Z - pos.z) < 40 and math.abs(entry.plank_x - pos.x) < 45
+			if near and not shown[key] then
+				shown[key] = player:hud_add({
+					type = "waypoint",
+					name = entry.id .. " " .. entry.short,
+					text = "",
+					precision = 0,
+					number = 0xFFFFFF,
+					world_pos = {x = entry.plank_x, y = BASE_Y + 3.6, z = PLANK_Z},
 				})
 			elseif not near and shown[key] then
 				player:hud_remove(shown[key])
@@ -1700,6 +1787,7 @@ core.register_on_mods_loaded(function()
 	lay_out()
 	lay_out_kinds()
 	lay_out_selection()
+	lay_out_planks()
 	lay_out_beds()
 	paginate()
 	plants.page_groups = {}
@@ -1760,7 +1848,7 @@ core.register_on_mods_loaded(function()
 	-- What stands where depends on the sources and on this file. A map
 	-- built for another arrangement cannot be repaired from here.
 	local arrangement = #plants.trees .. " " .. #plants.copies .. " " .. #plants.beds .. " " ..
-		#plants.kinds .. " " .. #plants.selected
+		#plants.kinds .. " " .. #plants.selected .. " " .. #plants.planks
 	if built and storage:get_string("arrangement") ~= arrangement then
 		plants.outdated = true
 		core.log("warning", "[wl_catalog] the map was built for another arrangement; run scripts/setup.sh")
@@ -1827,7 +1915,8 @@ core.register_on_joinplayer(function(player)
 	end
 	core.chat_send_player(name, "Katalog der Pflanzen: " .. #plants.nodes .. " Blöcke, " ..
 		#plants.trees .. " Bäume. /quellen oder der Kristall im Inventar springt zu den Bäumen oder Beeten einer Quelle, " ..
-		"/arten oder der Diamant zu den Bäumen nach Art. " ..
+		"/arten oder der Diamant zu den Bäumen nach Art, /auswahl zur Auswahl für Wanderlore, " ..
+		"/bretter zu den Brettern aller Quellen. " ..
 		"/pflanzen zeigt die Tafeln der Blöcke, /baum die Reihen der Bäume, " ..
 		"/baum <Nummer> springt vor einen Baum, /beet <Nummer> vor das Beet einer Bodenpflanze. " ..
 		"Fliegen mit K.")

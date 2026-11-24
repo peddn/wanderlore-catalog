@@ -136,41 +136,8 @@ local function elder_birch(shape, strands)
 	end
 end
 
--- The first elder forms. The author found the step from the large form,
--- 9 by 14, to these too big.
-local ELDER_SLIM_BIG = {
-	W = 19, H = 31, thick = 15, top = 25, hang = 0.4, hang_to = 8, away = 3, blob = 2.8,
-	branches = {
-		{11, 1, 0, 4}, {12, -1, 0, 4}, {13, 0, 1, 5}, {14, 0, -1, 5},
-		{15, 1, 1, 3}, {15, -1, -1, 3}, {16, 1, -1, 3}, {17, -1, 1, 3},
-		{19, 1, 0, 3}, {20, -1, 0, 3}, {21, 0, 1, 3}, {21, 0, -1, 2},
-		{23, 1, 1, 2}, {23, -1, -1, 2},
-	},
-	crowns = {{25, 2.6, 2.2}, {28, 1.7, 2.0}},
-}
-
-local ELDER_BROAD_BIG = {
-	W = 25, H = 28, thick = 14, top = 22, hang = 0.4, hang_to = 7, away = 3, blob = 2.8,
-	branches = {
-		{9, 1, 0, 6}, {10, -1, 0, 6}, {11, 0, 1, 7}, {11, 0, -1, 6},
-		{13, 1, 1, 5}, {13, -1, -1, 5}, {14, 1, -1, 4}, {14, -1, 1, 5},
-		{17, 1, 0, 4}, {17, -1, 0, 4}, {18, 0, 1, 4}, {18, 0, -1, 4},
-		{20, 1, 1, 2}, {20, -1, -1, 2},
-	},
-	crowns = {{22, 3.0, 2.3}, {25, 1.8, 2.0}},
-}
-
--- The same two, about one and a half times the large form.
-local ELDER_SLIM = {
-	W = 13, H = 21, thick = 9, top = 16, hang = 0.45, hang_to = 5, away = 2.5, blob = 2.2,
-	branches = {
-		{7, 1, 0, 3}, {8, -1, 0, 3}, {9, 0, 1, 3}, {9, 0, -1, 3},
-		{10, 1, 1, 2}, {11, -1, -1, 2}, {11, 1, -1, 2}, {12, -1, 1, 2},
-		{13, 1, 0, 2}, {14, -1, 0, 2}, {14, 0, 1, 2}, {15, 0, -1, 2},
-	},
-	crowns = {{16, 2.2, 2.0}, {19, 1.4, 1.6}},
-}
-
+-- The elder form the author chose: about one and a half times the large
+-- form, which is 9 by 14. A slim variant and two larger ones were dropped.
 local ELDER_BROAD = {
 	W = 17, H = 20, thick = 9, top = 15, hang = 0.45, hang_to = 5, away = 2.5, blob = 2.4,
 	branches = {
@@ -188,21 +155,15 @@ return {
 		trunk = "MT-T3",
 		leaves = "NB-T22",
 		hanging_texture = "naturalbiomes_heath_birch_leaves.png",
-		-- Blossom Downs. Five forms, chosen by the author on 2026-11-24; the
-		-- two elder forms were built by Claude. Each stands twice: as chosen
-		-- and with hanging leaves, to compare. hang turns the leaves that
-		-- hang free at the rim of a crown into hanging leaves.
+		-- Blossom Downs. Chosen by the author on 2026-11-24: four forms, all
+		-- with hanging leaves; the elder form was built by Claude. hang turns
+		-- the leaves that hang free at the rim of a crown into hanging leaves.
+		category = "Weichholz",
 		forms = {
-			{tree = "EB-T20", label = "klein"},
-			{tree = "EB-T20", label = "klein_Haengelaub", hang = true},
-			{tree = "NB-T22", label = "mittel"},
-			{tree = "NB-T22", label = "mittel_Haengelaub", hang = true},
-			{tree = "NB-T21", label = "gross"},
-			{tree = "NB-T21", label = "gross_Haengelaub", hang = true},
-			{build = elder_birch(ELDER_SLIM), label = "elder_schlank"},
-			{build = elder_birch(ELDER_SLIM, true), label = "elder_schlank_Haengelaub"},
-			{build = elder_birch(ELDER_BROAD), label = "elder_breit"},
-			{build = elder_birch(ELDER_BROAD, true), label = "elder_breit_Haengelaub"},
+			{tree = "EB-T20", label = "klein", hang = true},
+			{tree = "NB-T22", label = "mittel", hang = true},
+			{tree = "NB-T21", label = "gross", hang = true},
+			{build = elder_birch(ELDER_BROAD, true), label = "elder"},
 		},
 	},
 }
