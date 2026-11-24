@@ -16,15 +16,7 @@
 -- longer or shorter, some leaves at the rim gone; a built form gets the
 -- number as its fourth argument. stretch makes the bare trunk of a form
 -- that many blocks longer, roots puts about that many trunk blocks on the
--- ground around its foot. widen pushes the leaves of the crown outwards
--- by up to that factor, most at half its height or, with bell, at its
--- lower end; crown_from lets the crown begin that high above the foot;
--- branches adds that many short branches from the trunk to its rim, and
--- gaps clears the leaves around the ends of that many of them.
---
--- hanging_texture is the texture of the leaves. With it the catalogue
--- makes a block of hanging leaves for the species: the same leaves, cut
--- into strands. It is only there to judge the idea.
+-- ground around its foot. scale makes a form larger or, below 1, smaller.
 
 -- A number from 0 to 1 that depends only on the place and on salt, which
 -- a builder sets to the number of the variant it builds.
@@ -215,22 +207,18 @@ return {
 			{tree = "BB-T6", label = "mittel"},
 			{tree = "BB-T6", label = "mittel_Variante_1", vary = 1},
 			{tree = "BB-T6", label = "mittel_Variante_2", vary = 2},
-			-- Large: the aspen the author chose, widened. The crown begins
-			-- low, as in the smaller forms, and is widest at half its height;
-			-- this silhouette the author picked from the attempts. Then, as
-			-- he asked: a little wider still, more branches, and small open
-			-- places as in the elder form. A bell, widest at its lower end,
-			-- and a form with a high bare trunk he turned down.
-			{tree = "BB-T7", label = "gross", widen = 2.1, crown_from = 3, branches = 10, gaps = 5},
-			{tree = "BB-T7", label = "gross_Variante_1", widen = 2.1, crown_from = 3, branches = 10, gaps = 5, vary = 1},
-			{tree = "BB-T7", label = "gross_Variante_2", widen = 2.1, crown_from = 3, branches = 10, gaps = 5, vary = 2},
-			{tree = "BB-T7", label = "gross_bisher"},
+			-- Large: the elder form made smaller, to four fifths. The author
+			-- asked for this after three attempts to widen the aspen he had
+			-- chosen first, BB-T7, did not suit him: a ball, a bell and a
+			-- ball with notches.
+			{tree = "BB-T32", label = "gross", stretch = 5, roots = 10, scale = 0.8},
+			{tree = "BB-T32", label = "gross_Variante_1", stretch = 5, roots = 10, scale = 0.8, vary = 1},
+			{tree = "BB-T32", label = "gross_Variante_2", stretch = 5, roots = 10, scale = 0.8, vary = 2},
 			-- Elder: the trunk five longer, to be taller than the large form,
-			-- and more roots, as the author asked.
+			-- and more roots, as the author asked. He approved it.
 			{tree = "BB-T32", label = "elder", stretch = 5, roots = 10},
 			{tree = "BB-T32", label = "elder_Variante_1", stretch = 5, roots = 10, vary = 1},
 			{tree = "BB-T32", label = "elder_Variante_2", stretch = 5, roots = 10, vary = 2},
-			{tree = "BB-T32", label = "elder_bisher"},
 		},
 	},
 }
