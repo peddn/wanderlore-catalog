@@ -869,8 +869,9 @@ end
 -- Returns a copy of a schematic with a longer trunk and more roots, as
 -- the author asks for a form: stretch adds that many layers of bare
 -- trunk, roots puts about that many trunk blocks on the ground around
--- the foot, some of them two high.
-local function reshape(schematic, stretch, roots)
+-- the foot, some of them two high, tier adds a tier of branches below
+-- the lowest one.
+local function reshape(schematic, stretch, roots, tier)
 	if type(schematic) == "string" then
 		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
 	end
@@ -909,6 +910,82 @@ local function reshape(schematic, stretch, roots)
 			copy[index] = {name = node.name, prob = node.prob, param2 = node.param2}
 		end
 		table.insert(layers, bare, copy)
+	end
+
+	-- A further tier of branches below the lowest one: the lowest band of
+	-- the crown, with its branches, once more further down and turned by
+	-- a quarter around the trunk, so it is no wider than what is there.
+	-- The band it was copied from gets some more leaves, within its width.
+	if tier then
+		local BAND = 4
+		local low, sum_x, sum_z, count = nil, 0, 0, 0
+		for index, layer in ipairs(layers) do
+			for cell, node in ipairs(layer) do
+				local kind = kind_of(node)
+				if kind == "leaves" then
+					low = low or index
+				elseif kind == "trunk" and index == 1 then
+					sum_x = sum_x + (cell - 1) % sx
+					sum_z = sum_z + math.floor((cell - 1) / sx)
+					count = count + 1
+				end
+			end
+		end
+		-- The trunk stays free for five blocks above the ground; if that
+		-- leaves little room, the new tier reaches into the one above.
+		local FREE = 5
+		local down = low and math.min(BAND + 1, low - 1 - FREE) or 0
+		if low and count > 0 and down >= 2 then
+			local cx, cz = sum_x / count, sum_z / count
+			local column = {}
+			for cell, node in ipairs(layers[1]) do
+				column[cell] = kind_of(node) == "trunk"
+			end
+			local reach = 0
+			for index = low, math.min(low + BAND - 1, #layers) do
+				for cell, node in ipairs(layers[index]) do
+					local kind = kind_of(node)
+					if kind == "leaves" or kind == "trunk" and not column[cell] then
+						local x, z = (cell - 1) % sx, math.floor((cell - 1) / sx)
+						reach = math.max(reach, math.abs(x - cx), math.abs(z - cz))
+						-- A quarter turn around the trunk.
+						local tx, tz = math.floor(cx - (z - cz) + 0.5), math.floor(cz + (x - cx) + 0.5)
+						if tx >= 0 and tx < sx and tz >= 0 and tz < sz then
+							local target = tz * sx + tx + 1
+							if not kind_of(layers[index - down][target]) then
+								local param2 = node.param2
+								if kind == "trunk" and (param2 == 12 or param2 == 4) then
+									param2 = param2 == 12 and 4 or 12
+								end
+								layers[index - down][target] = {name = node.name, param2 = param2}
+							end
+						end
+					end
+				end
+			end
+			-- More leaves in the band above: beside or below a leaf, where
+			-- there is air, within the width the band already has.
+			local grown = {}
+			for index = low, math.min(low + BAND - 1, #layers) do
+				for cell, node in ipairs(layers[index]) do
+					if kind_of(node) == "leaves" then
+						local x, z = (cell - 1) % sx, math.floor((cell - 1) / sx)
+						for _, d in ipairs({{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}}) do
+							local nx, ny, nz = x + d[1], index + d[2], z + d[3]
+							if nx >= 0 and nx < sx and nz >= 0 and nz < sz and ny >= low
+									and math.abs(nx - cx) <= reach and math.abs(nz - cz) <= reach
+									and not kind_of(layers[ny][nz * sx + nx + 1])
+									and variant_chance(nx, ny, nz, 11) < 0.45 then
+								grown[#grown + 1] = {ny, nz * sx + nx + 1, node.name}
+							end
+						end
+					end
+				end
+			end
+			for _, leaf in ipairs(grown) do
+				layers[leaf[1]][leaf[2]] = {name = leaf[3], param2 = 0}
+			end
+		end
 	end
 
 	-- Roots: around the trunk of the lowest layer, nearest places first.
@@ -1041,10 +1118,10 @@ local function lay_out_selection()
 						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
 					-- In this order: longer trunk and roots, then the size,
 					-- then the slight changes of a variant.
-					if (form.vary or form.stretch or form.roots or form.scale) and tree.schematic then
+					if (form.vary or form.stretch or form.roots or form.scale or form.tier) and tree.schematic then
 						local schematic = tree.schematic
-						if form.stretch or form.roots then
-							schematic = reshape(schematic, form.stretch or 0, form.roots)
+						if form.stretch or form.roots or form.tier then
+							schematic = reshape(schematic, form.stretch or 0, form.roots, form.tier)
 						end
 						if form.scale and form.scale < 1 then
 							schematic = shrink(schematic, form.scale)

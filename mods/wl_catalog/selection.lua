@@ -16,7 +16,9 @@
 -- longer or shorter, some leaves at the rim gone; a built form gets the
 -- number as its fourth argument. stretch makes the bare trunk of a form
 -- that many blocks longer, roots puts about that many trunk blocks on the
--- ground around its foot. scale makes a form larger or, below 1, smaller.
+-- ground around its foot. tier adds one more tier of branches below the
+-- lowest one, no wider than it, and gives the tier above it more leaves.
+-- scale makes a form larger or, below 1, smaller.
 
 -- A number from 0 to 1 that depends only on the place and on salt, which
 -- a builder sets to the number of the variant it builds.
@@ -211,14 +213,16 @@ return {
 			-- asked for this after three attempts to widen the aspen he had
 			-- chosen first, BB-T7, did not suit him: a ball, a bell and a
 			-- ball with notches.
-			{tree = "BB-T32", label = "gross", stretch = 5, roots = 10, scale = 0.8},
-			{tree = "BB-T32", label = "gross_Variante_1", stretch = 5, roots = 10, scale = 0.8, vary = 1},
-			{tree = "BB-T32", label = "gross_Variante_2", stretch = 5, roots = 10, scale = 0.8, vary = 2},
+			{tree = "BB-T32", label = "gross", stretch = 5, roots = 10, tier = true, scale = 0.8},
+			{tree = "BB-T32", label = "gross_Variante_1", stretch = 5, roots = 10, tier = true, scale = 0.8, vary = 1},
+			{tree = "BB-T32", label = "gross_Variante_2", stretch = 5, roots = 10, tier = true, scale = 0.8, vary = 2},
 			-- Elder: the trunk five longer, to be taller than the large form,
-			-- and more roots, as the author asked. He approved it.
-			{tree = "BB-T32", label = "elder", stretch = 5, roots = 10},
-			{tree = "BB-T32", label = "elder_Variante_1", stretch = 5, roots = 10, vary = 1},
-			{tree = "BB-T32", label = "elder_Variante_2", stretch = 5, roots = 10, vary = 2},
+			-- and more roots, as the author asked. He approved it and then
+			-- asked for one more tier of branches at the bottom, for the
+			-- large form as well.
+			{tree = "BB-T32", label = "elder", stretch = 5, roots = 10, tier = true},
+			{tree = "BB-T32", label = "elder_Variante_1", stretch = 5, roots = 10, tier = true, vary = 1},
+			{tree = "BB-T32", label = "elder_Variante_2", stretch = 5, roots = 10, tier = true, vary = 2},
 		},
 	},
 }
