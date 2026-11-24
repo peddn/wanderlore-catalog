@@ -31,11 +31,11 @@ end
 -- them.
 --
 -- Built back with age: the trunk gets shorter and, below the elder form,
--- single and without roots. The branches get shorter and are only twigs
--- inside the leaves, not blocks; those that would be shorter than two
--- blocks are not there at all. So a young birch is a slender column: one
--- long ball of leaves along the trunk, which in old age shrinks to the
--- tuft on top. And the younger the tree, the more of its rim hangs.
+-- single and without roots. It has no branches thick enough to be
+-- blocks, and its crown is one piece instead of balls on branches: a
+-- slender column when young, fuller with the years, round in every layer
+-- and flowing to a point at the top. The younger the tree, the more of
+-- its rim hangs.
 
 species.stages.birch = {klein = 0.2, mittel = 0.45, gross = 0.65, elder = 1}
 
@@ -55,42 +55,34 @@ function species.birch(age, names, seed)
 		tree:roots(5)
 	end
 
-	-- The crown along the trunk: long and slender when young, a tuft on
-	-- top when old. Above it the tip: a small ball, and on a young tree a
-	-- single leaf or two.
-	local t = age ^ 1.5
-	tree:ball(0, lerp(0.7 * top, top, t), 0, lerp(1.3, 2.6, age), lerp(0.32 * top + 0.8, 2.1, t))
 	if old then
-		tree:ball(0, top + 3, 0, 1.5, 1.6)
-		tree:set(0, top + 5, 0, "leaves")
+		-- The tuft on top: broad and flat.
+		tree:ball(0, top + 1, 0, 3.2, 1.8)
+		tree:ball(0, top + 2.6, 0, 1.9, 1.0)
+		for number, branch in ipairs(BIRCH_BRANCHES) do
+			local length = branch[4] * age * 0.95
+			-- A variant has some branches a little longer or shorter.
+			if seed ~= 0 then
+				length = length + (tree:chance(number, 1, 0) - 0.5) * 1.6
+			end
+			length = round(length)
+			if length >= 2 then
+				local y = round(branch[1] * top / 15) + (seed ~= 0 and round(tree:chance(number, 2, 0) * 2 - 1) or 0)
+				local x, by, z = tree:branch(math.max(2, y), branch[2], branch[3], length, 2)
+				tree:ball(x, by + 1, z, 2.4, 1.6)
+				if length >= 3 then
+					tree:ball(x - branch[2] * 2, by + 1, z - branch[3] * 2, 1.9, 1.4)
+				end
+			end
+		end
 	else
-		tree:ball(0, top, 0, 1.1, 1.2)
-		tree:set(0, top + 1, 0, "leaves")
-		tree:set(0, top + 2, 0, "leaves")
-	end
-
-	for number, branch in ipairs(BIRCH_BRANCHES) do
-		local length = branch[4] * age * 0.95
-		-- A variant has some branches a little longer or shorter.
-		if seed ~= 0 then
-			length = length + (tree:chance(number, 1, 0) - 0.5) * 1.6 * age
-		end
-		length = round(length)
-		if length >= 2 then
-			local y = round(branch[1] * top / 15) + (seed ~= 0 and round(tree:chance(number, 2, 0) * 2 - 1) or 0)
-			y = math.max(2, y)
-			local x, z = branch[2] * length, branch[3] * length
-			-- Only an old birch has branches thick enough to be blocks.
-			-- On a younger one they are twigs inside the leaves.
-			if old then
-				x, y, z = tree:branch(y, branch[2], branch[3], length, 2)
-			end
-			local size = lerp(1.3, 2.4, age)
-			tree:ball(x, y + 1, z, size, size * 0.68)
-			if length >= 3 then
-				tree:ball(x - branch[2] * 2, y + 1, z - branch[3] * 2, size * 0.8, size * 0.57)
-			end
-		end
+		-- A younger birch has no branches thick enough to be blocks. Its
+		-- crown is one piece: slender when young, fuller with the years,
+		-- widest in its lower third and flowing to a point at the top.
+		local base = round(lerp(2, 4, age))
+		local radius = 1 + 4.6 * (math.max(0, age - 0.2) / 0.8) ^ 0.75
+			+ (seed ~= 0 and (tree:chance(3, 1, 4) - 0.5) * 0.6 * age or 0)
+		tree:egg(base, top + 2, radius, 0.32)
 	end
 
 	-- The younger the tree, the more of its rim hangs.

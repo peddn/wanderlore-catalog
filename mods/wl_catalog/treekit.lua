@@ -100,6 +100,27 @@ function kit:ball(cx, cy, cz, rx, ry)
 	end
 end
 
+-- A crown in one piece around the trunk, from height y1 to y2: round in
+-- every layer, widest (`radius`) at the share `peak` of its height and
+-- flowing to a point at top and bottom, without steps.
+function kit:egg(y1, y2, radius, peak)
+	for y = y1, y2 do
+		local u = (y - y1 + 0.5) / (y2 - y1 + 1)
+		-- Rises to the peak and falls from it, each as a quarter wave.
+		local shape = u < peak and math.sin(math.pi / 2 * u / peak)
+			or math.cos(math.pi / 2 * (u - peak) / (1 - peak))
+		local r = radius * shape ^ 0.75
+		local reach = math.ceil(r + 1)
+		for z = -reach, reach do
+			for x = -reach, reach do
+				if math.sqrt(x * x + z * z) <= r * (0.88 + 0.2 * self:chance(x, y, z)) + 0.35 then
+					self:set(x, y, z, "leaves")
+				end
+			end
+		end
+	end
+end
+
 -- Strands: in a share of the columns further than `away` from the trunk,
 -- hanging leaves below the lowest leaf, each up to `length` long and none
 -- lower than `floor`.
