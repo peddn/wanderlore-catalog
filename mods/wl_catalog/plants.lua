@@ -820,6 +820,113 @@ local function vary(schematic, seed)
 	return {size = {x = sx, y = height, z = sz}, data = data}
 end
 
+-- Returns a copy of a schematic with its crown widened towards a ball:
+-- the leaves are pushed outwards from the trunk, most at half the height
+-- of the crown and not at all at its top and bottom, up to the factor
+-- given. The trunk stays as it is. With branches, that many short ones
+-- reach from the trunk to the rim of the crown, as lying trunk blocks.
+local function widen(schematic, factor, branches)
+	if type(schematic) == "string" then
+		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
+	end
+	local sx, sy, sz = schematic.size.x, schematic.size.y, schematic.size.z
+	local function at(x, y, z)
+		if x < 0 or x >= sx or y < 0 or y >= sy or z < 0 or z >= sz then
+			return nil
+		end
+		local node = schematic.data[(z * sy + y) * sx + x + 1]
+		if node.name == "air" or (node.prob or 255) == 0 then
+			return nil
+		end
+		return node, plant_category[resolve(node.name)]
+	end
+	-- Where the trunk stands, and from where to where the crown reaches.
+	local sum_x, sum_z, count, low, high, trunk_name, leaf_name = 0, 0, 0, nil, 0, nil, nil
+	-- The trunk does not always begin in the lowest layer.
+	local foot
+	for y = 0, sy - 1 do
+		for z = 0, sz - 1 do
+			for x = 0, sx - 1 do
+				local _, kind = at(x, y, z)
+				foot = foot or kind == "trunk" and y
+			end
+		end
+		if foot then
+			break
+		end
+	end
+	for z = 0, sz - 1 do
+		for y = 0, sy - 1 do
+			for x = 0, sx - 1 do
+				local node, kind = at(x, y, z)
+				if kind == "trunk" and y == foot then
+					sum_x, sum_z, count = sum_x + x, sum_z + z, count + 1
+					trunk_name = node.name
+				elseif kind == "leaves" then
+					low, high = math.min(low or y, y), math.max(high, y)
+					leaf_name = leaf_name or node.name
+				end
+			end
+		end
+	end
+	if count == 0 or not low then
+		return schematic
+	end
+	local cx, cz = sum_x / count, sum_z / count
+	local pad = math.ceil((factor - 1) * math.max(sx, sz) / 2)
+	local nx, nz = sx + 2 * pad, sz + 2 * pad
+	local data = {}
+	for index = 1, nx * sy * nz do
+		data[index] = {name = "air", prob = 0}
+	end
+	local function put(x, y, z, node)
+		data[(z * sy + y) * nx + x + 1] = {name = node.name, param2 = node.param2}
+	end
+	local half = {}   -- how far the leaves reach from the trunk, per layer
+	for y = 0, sy - 1 do
+		local t = high > low and (y - low) / (high - low) or 0
+		local grow = 1
+		if t > 0 and t < 1 then
+			grow = 1 + (factor - 1) * math.sin(math.pi * t) ^ 0.7
+		end
+		half[y] = 0
+		for z = 0, nz - 1 do
+			for x = 0, nx - 1 do
+				local from_x = math.floor(cx + (x - pad - cx) / grow + 0.5)
+				local from_z = math.floor(cz + (z - pad - cz) / grow + 0.5)
+				local node, kind = at(from_x, y, from_z)
+				if kind == "leaves" then
+					put(x, y, z, node)
+					half[y] = math.max(half[y], math.abs(x - pad - cx), math.abs(z - pad - cz))
+				end
+			end
+		end
+		-- Everything but leaves keeps its place.
+		for z = 0, sz - 1 do
+			for x = 0, sx - 1 do
+				local node, kind = at(x, y, z)
+				if node and kind ~= "leaves" then
+					put(x + pad, y, z + pad, node)
+				end
+			end
+		end
+	end
+	-- Branches: spread over the lower two thirds of the crown, each to
+	-- another side, ending just inside the rim.
+	local tx, tz = math.floor(cx + 0.5) + pad, math.floor(cz + 0.5) + pad
+	local sides = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+	for number = 1, branches or 0 do
+		local y = low + 1 + math.floor((number - 0.5) / branches * (high - low) * 0.66)
+		local side = sides[(number - 1) % 4 + 1]
+		local length = math.max(1, math.min(4, math.floor(half[y] or 0)))
+		for step = 1, length do
+			data[(( tz + side[2] * step) * sy + y) * nx + tx + side[1] * step + 1] =
+				{name = trunk_name, param2 = side[1] ~= 0 and 12 or 4}
+		end
+	end
+	return {size = {x = nx, y = sy, z = nz}, data = data}
+end
+
 -- Returns a copy of a schematic with a longer trunk and more roots, as
 -- the author asks for a form: stretch adds that many layers of bare
 -- trunk, roots puts about that many trunk blocks on the ground around
@@ -993,8 +1100,11 @@ local function lay_out_selection()
 						label = form.label or form.tree,
 						shot_id = species.name:upper() .. "-" .. index,
 						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
-					if (form.vary or form.stretch or form.roots) and tree.schematic then
+					if (form.vary or form.stretch or form.roots or form.widen) and tree.schematic then
 						local schematic = tree.schematic
+						if form.widen then
+							schematic = widen(schematic, form.widen, form.branches)
+						end
 						if form.stretch or form.roots then
 							schematic = reshape(schematic, form.stretch or 0, form.roots)
 						end
