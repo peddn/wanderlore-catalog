@@ -20,6 +20,15 @@
 -- lowest one, no wider than it, and gives the tier above it more leaves.
 -- scale makes a form larger or, below 1, smaller.
 
+-- The species that are built by a way of their own, see species.lua. A
+-- form {species = "birch", age = 0.45} is such a tree at that age.
+local species = dofile(core.get_modpath("wl_catalog") .. "/species.lua")
+local function grown(name, age)
+	return function(trunk, leaves, hanging, variant)
+		return species[name](age, {trunk = trunk, leaves = leaves, hanging = hanging}, variant or 0)
+	end
+end
+
 -- A number from 0 to 1 that depends only on the place and on salt, which
 -- a builder sets to the number of the variant it builds.
 local salt = 0
@@ -176,19 +185,21 @@ return {
 		planks = "EB25",
 		-- Chosen by the author; the catalogue does not show it in the row yet.
 		sapling = "EB86",
+		-- Each form twice: as the author approved it, and built by the way
+		-- of the species at that age, with one variant, to compare.
 		forms = {
 			{tree = "EB-T20", label = "klein", hang = true},
-			{tree = "EB-T20", label = "klein_Variante_1", hang = true, vary = 1},
-			{tree = "EB-T20", label = "klein_Variante_2", hang = true, vary = 2},
+			{build = grown("birch", 0.2), label = "klein_Verfahren", hang = true},
+			{build = grown("birch", 0.2), label = "klein_Verfahren_Variante", vary = 1, hang = true},
 			{tree = "NB-T22", label = "mittel", hang = true},
-			{tree = "NB-T22", label = "mittel_Variante_1", hang = true, vary = 1},
-			{tree = "NB-T22", label = "mittel_Variante_2", hang = true, vary = 2},
+			{build = grown("birch", 0.45), label = "mittel_Verfahren", hang = true},
+			{build = grown("birch", 0.45), label = "mittel_Verfahren_Variante", vary = 1, hang = true},
 			{tree = "NB-T21", label = "gross", hang = true},
-			{tree = "NB-T21", label = "gross_Variante_1", hang = true, vary = 1},
-			{tree = "NB-T21", label = "gross_Variante_2", hang = true, vary = 2},
+			{build = grown("birch", 0.65), label = "gross_Verfahren", hang = true},
+			{build = grown("birch", 0.65), label = "gross_Verfahren_Variante", vary = 1, hang = true},
 			{build = elder_birch(ELDER_BROAD, true), label = "elder"},
-			{build = elder_birch(ELDER_BROAD, true), label = "elder_Variante_1", vary = 1},
-			{build = elder_birch(ELDER_BROAD, true), label = "elder_Variante_2", vary = 2},
+			{build = grown("birch", 1), label = "elder_Verfahren"},
+			{build = grown("birch", 1), label = "elder_Verfahren_Variante", vary = 1},
 		},
 	},
 	{

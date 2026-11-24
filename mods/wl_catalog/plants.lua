@@ -1093,7 +1093,8 @@ local function lay_out_selection()
 						local id = species.name:upper() .. "-" .. index
 						local copy = {z = z, id = id, shot_id = id, suffix = "", offset = 0,
 							source = {title = "Auswahl", prefix = "SEL", order = 0},
-							chosen = {trunk = trunk, leaves = leaves},
+							chosen = {trunk = trunk, leaves = leaves,
+								hanging = form.hang and "wl_catalog:hanging_" .. species.name or nil},
 							label = form.label or "gebaut",
 							name = species.title .. " " .. (form.label or "gebaut"),
 							schematic = schematic,
