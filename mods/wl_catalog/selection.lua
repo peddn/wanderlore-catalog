@@ -161,6 +161,8 @@ return {
 		-- the leaves that hang free at the rim of a crown into hanging leaves.
 		category = "Weichholz",
 		planks = "EB25",
+		-- Chosen by the author; the catalogue does not show it in the row yet.
+		sapling = "EB86",
 		forms = {
 			{tree = "EB-T20", label = "klein", hang = true},
 			{tree = "NB-T22", label = "mittel", hang = true},
