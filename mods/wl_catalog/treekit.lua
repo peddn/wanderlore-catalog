@@ -129,6 +129,22 @@ function kit:egg(y1, y2, radius, peak, open)
 	end
 end
 
+-- A gap: takes the leaves away around a place, r wide and high. Trunk
+-- stays.
+function kit:bite(cx, cy, cz, r)
+	for z = math.floor(cz - r), math.ceil(cz + r) do
+		for y = math.floor(cy - r), math.ceil(cy + r) do
+			for x = math.floor(cx - r), math.ceil(cx + r) do
+				local cell = self.cells[key(x, y, z)]
+				if cell and cell.kind ~= "trunk"
+						and (x - cx) ^ 2 + (y - cy) ^ 2 + (z - cz) ^ 2 <= r * r * (0.8 + 0.4 * self:chance(x, y, z)) then
+					self.cells[key(x, y, z)] = nil
+				end
+			end
+		end
+	end
+end
+
 -- Strands: in a share of the columns further than `away` from the trunk,
 -- hanging leaves below the lowest leaf, each up to `length` long and none
 -- lower than `floor`.

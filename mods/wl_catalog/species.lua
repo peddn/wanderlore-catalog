@@ -106,9 +106,11 @@ end
 -- them.
 --
 -- Built back with age: the trunk gets shorter and, below the elder form,
--- single; the roots get fewer; the branches and their balls get smaller.
--- A young beech has no tiers at all. Its crown is one piece, a leafy
--- column that begins near the ground.
+-- single; the roots get fewer; the branches and their balls get smaller,
+-- and the layers of leaves grow together, with twigs between the tiers,
+-- so that only single gaps stay. A young beech has no tiers at all. Its
+-- crown is one full piece that begins near the ground, with a few bulges
+-- and gaps.
 
 species.stages.beech = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
 
@@ -124,20 +126,35 @@ function species.beech(age, names, seed)
 	tree:stem(top, thick)
 
 	if age < 0.55 then
-		-- The young beech: a column of leaves, widest in the middle, with
-		-- a few bulges at its rim so that it is not smooth.
-		local radius = lerp(2.3, 2.7, age / 0.55)
+		-- The young beech: a full crown in one piece, widest in the
+		-- middle, with a few bulges at its rim and a few gaps in it, so
+		-- that it is neither smooth nor solid.
+		local radius = lerp(3.0, 3.5, age / 0.55)
 		tree:egg(3, top + 2, radius, 0.42)
-		for number = 1, round(lerp(4, 7, age / 0.55)) do
+		local count = round(lerp(4, 7, age / 0.55))
+		for number = 1, count do
 			local turn = tree:chance(number, 3, 1) * 2 * math.pi
 			local y = round(lerp(4, top, tree:chance(number, 4, 1)))
-			tree:ball(math.cos(turn) * 1.8, y, math.sin(turn) * 1.8, 1.7, 1.2)
+			tree:ball(math.cos(turn) * 2.4, y, math.sin(turn) * 2.4, 1.8, 1.2)
+		end
+		for number = 1, count do
+			local turn = tree:chance(number, 8, 1) * 2 * math.pi
+			local y = round(lerp(5, top, tree:chance(number, 9, 1)))
+			tree:bite(math.cos(turn) * radius, y, math.sin(turn) * radius, 1.5)
 		end
 		return tree:schematic()
 	end
 
 	tree:roots(round(lerp(2, 10, (age - 0.55) / 0.45)))
 	local scale = lerp(0.7, 1, (age - 0.55) / 0.45)
+	-- Only the elder form has its layers of leaves well apart. Before
+	-- that the crown is fuller: leaves along the trunk join the layers,
+	-- the balls are higher, fewer branches are missing, and between the
+	-- tiers there are twigs with leaves of their own. Single gaps stay.
+	local full = age < 0.85
+	if full then
+		tree:egg(round(BEECH_TIERS[1][1] * top / 21), top + 1, 2.4, 0.4)
+	end
 	for number, tier in ipairs(BEECH_TIERS) do
 		local sides = number % 2 == 1 and STRAIGHT or SLANTED
 		local turn = round(tree:chance(number, 5, 0) * 3)
@@ -148,9 +165,9 @@ function species.beech(age, names, seed)
 				side = sides[((index - 1) * 2 + turn) % 4 + 1]
 			end
 			-- No tree grows evenly: every branch has a height, a length
-			-- and a ball of leaves of its own, and one in five of the
-			-- branches of a full tier is missing.
-			local there = tier[2] < 4 or tree:chance(number, 6, index) > 0.2
+			-- and a ball of leaves of its own, and some of the branches
+			-- of a full tier are missing.
+			local there = tier[2] < 4 or tree:chance(number, 6, index) > (full and 0.1 or 0.2)
 			if there then
 				local y = round(tier[1] * top / 21 + tree:chance(number, 2, index) * 3 - 1.5)
 				local length = tier[3] * scale * (sides == SLANTED and 0.75 or 1)
@@ -158,9 +175,16 @@ function species.beech(age, names, seed)
 				length = math.max(1, round(length))
 				local size = 3 * scale * lerp(0.8, 1.1, tree:chance(number, 7, index))
 				local x, by, z = tree:branch(math.max(4, y), side[1], side[2], length, 3)
-				tree:ball(x, by + 1, z, size, size * 0.6)
+				tree:ball(x, by + 1, z, size, size * (full and 0.8 or 0.6))
 				if length >= 3 then
-					tree:ball(x - side[1] * 2, by + 1, z - side[2] * 2, size * 0.8, size * 0.5)
+					tree:ball(x - side[1] * 2, by + 1, z - side[2] * 2, size * 0.8, size * (full and 0.65 or 0.5))
+				end
+				if full and tree:chance(number, 10, index) < 0.7 then
+					-- A twig between this tier and the next, to the side.
+					local other = sides == STRAIGHT and SLANTED or STRAIGHT
+					local to = other[(index - 1 + turn) % 4 + 1]
+					local far = math.max(2, length * 0.7)
+					tree:ball(to[1] * far * 0.75, by + 3, to[2] * far * 0.75, size * 0.75, size * 0.6)
 				end
 			end
 		end
