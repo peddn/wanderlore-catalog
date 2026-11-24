@@ -599,6 +599,31 @@ end
 local SELECTION_Z = -3000
 plants.selected = {}
 
+-- Blocks have to be registered while the mods load, so the blocks of
+-- hanging leaves are made here, before anything else of the selection is
+-- known. The strands are cut out of the texture of the leaves.
+do
+	local ok, list = pcall(dofile, core.get_modpath("wl_catalog") .. "/selection.lua")
+	local mask = "[fill:16x16:#00000000"
+	for _, strand in ipairs({{0, 2, 16}, {3, 1, 11}, {5, 2, 16}, {8, 1, 13}, {10, 2, 16}, {13, 1, 9}, {15, 1, 14}}) do
+		mask = mask .. "^[fill:" .. strand[2] .. "x" .. strand[3] .. ":" .. strand[1] .. ",0:#ffffffff"
+	end
+	mask = mask:gsub("%^", "\\^"):gsub(":", "\\:")
+	for _, species in ipairs(ok and type(list) == "table" and list or {}) do
+		if species.hanging_texture then
+			core.register_node("wl_catalog:hanging_" .. species.name, {
+				description = "Hängendes Laub: " .. species.title,
+				drawtype = "allfaces_optional",
+				tiles = {species.hanging_texture .. "^[mask:" .. mask},
+				paramtype = "light",
+				waving = 1,
+				walkable = false,
+				groups = {snappy = 3},
+			})
+		end
+	end
+end
+
 -- Returns a schematic enlarged by a factor, each block of the result
 -- taken from the nearest one of the original.
 local function enlarge(schematic, factor)
@@ -658,7 +683,7 @@ local function lay_out_selection()
 				local tree = plants.tree_by_id[form.tree]
 				if form.build then
 					-- A form built in selection.lua itself.
-					local ok, schematic = pcall(form.build, trunk, leaves)
+					local ok, schematic = pcall(form.build, trunk, leaves, "wl_catalog:hanging_" .. species.name)
 					if ok and type(schematic) == "table" then
 						local id = species.name:upper() .. "-" .. index
 						local copy = {z = z, id = id, shot_id = id, suffix = "", offset = 0,
@@ -721,10 +746,13 @@ local function rewrite(tree)
 				if content ~= air and content ~= ignore then
 					local kind = kinds[content]
 					if kind == nil then
-						kind = plant_category[core.get_name_from_content_id(content)] or false
+						local name = core.get_name_from_content_id(content)
+						kind = plant_category[name] or name:find("^wl_catalog:hanging_") and "keep" or false
 						kinds[content] = kind
 					end
-					if kind == "trunk" then
+					if kind == "keep" then
+						-- Hanging leaves of the selection itself.
+					elseif kind == "trunk" then
 						data[vi] = trunk
 					elseif kind == "leaves" then
 						data[vi] = leaves
@@ -1499,6 +1527,27 @@ end
 local function shoot_selection(name, index)
 	local player = core.get_player_by_name(name)
 	local tree = plants.selected[index]
+	if player and not tree and plants.selected[index - 1] and not (what and not what.selection) then
+		-- At the end one picture of all forms side by side, to compare
+		-- their sizes. The forms of the first species only.
+		local first, last, height = plants.selected[1], nil, 0
+		for _, one in ipairs(plants.selected) do
+			if one.z == first.z then
+				last = one
+				height = math.max(height, one.h)
+			end
+		end
+		local left, right = first.x - view_of(first) / 2, last.x + view_of(last) / 2
+		local distance = 0.66 * math.max((right - left) / 1.15, height * 1.2) / (2 * HALF)
+		player:set_pos({x = (left + right) / 2, y = BASE_Y + height / 2 - 1.625, z = first.z - distance})
+		player:set_look_horizontal(0)
+		player:set_look_vertical(0)
+		core.after(8, function()
+			shot("row " .. first.shot_id:match("^(%u+)") .. " Reihe 0x0")
+			core.after(1.0, shoot_beds, name, 1)
+		end)
+		return
+	end
 	if not player or not tree or what and not what.selection then
 		return shoot_beds(name, 1)
 	end

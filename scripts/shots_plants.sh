@@ -57,6 +57,7 @@ trap 'kill $luanti $xvfb 2>/dev/null || true' EXIT
 #   SHOT <number> tree <id> <name> <width>x<height>
 #   SHOT <number> bed <id> <name> <kind>
 #   SHOT <number> sel <id> <label> <width>x<height>
+#   SHOT <number> row <name> ...   all chosen forms side by side
 last=0
 while kill -0 "$luanti" 2>/dev/null; do
 	line="$(grep -o 'SHOT [0-9]* [a-z]* .*' "$dev/debug.txt" 2>/dev/null | tail -1 || true)"
@@ -65,6 +66,8 @@ while kill -0 "$luanti" 2>/dev/null; do
 		kind="$(echo "$line" | awk '{print $3}')"
 		if [ "$kind" = "page" ]; then
 			file="$sheets/blocks_$(echo "$line" | awk '{printf "%s_%02d", $4, $5}').png"
+		elif [ "$kind" = "row" ]; then
+			file="$sheets/selection_$(echo "$line" | awk '{print $4}')_row.png"
 		elif [ "$kind" = "sel" ]; then
 			file="$selection/$(echo "$line" | awk '{printf "%04d %s %s %s", $2, $4, $5, $6}').png"
 		elif [ "$kind" = "bed" ]; then
