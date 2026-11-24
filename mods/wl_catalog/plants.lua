@@ -820,14 +820,54 @@ local function vary(schematic, seed)
 	return {size = {x = sx, y = height, z = sz}, data = data}
 end
 
--- Returns a copy of a schematic with its crown widened towards a ball:
--- the leaves are pushed outwards from the trunk, most at half the height
--- of the crown and not at all at its top and bottom, up to the factor
--- given. The trunk stays as it is. With branches, that many short ones
--- reach from the trunk to the rim of the crown, as lying trunk blocks.
-local function widen(schematic, factor, branches)
+-- Returns a copy of a schematic with its crown widened: the leaves are
+-- pushed outwards from the trunk, up to the factor given. As a ball the
+-- crown is widest at half its height and unchanged at top and bottom; as
+-- a bell it is widest at its lower end and narrows to the top. The trunk
+-- stays as it is. crown_from lets the crown begin at that height above
+-- the foot, by repeating its lowest layer downwards. With branches, that
+-- many short ones reach from the trunk to the rim of the crown, as lying
+-- trunk blocks.
+local function widen(schematic, factor, branches, bell, crown_from)
 	if type(schematic) == "string" then
 		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
+	end
+	if crown_from then
+		-- A copy whose lowest layer of leaves is repeated downwards.
+		local size, lowest, foot = schematic.size, nil, nil
+		local function cell(y, z, x)
+			return schematic.data[(z * size.y + y) * size.x + x + 1]
+		end
+		local function kind(node)
+			return node.name ~= "air" and (node.prob or 255) > 0 and plant_category[resolve(node.name)]
+		end
+		for y = 0, size.y - 1 do
+			for z = 0, size.z - 1 do
+				for x = 0, size.x - 1 do
+					local k = kind(cell(y, z, x))
+					foot = foot or k == "trunk" and y
+					lowest = lowest or k == "leaves" and y
+				end
+			end
+		end
+		if lowest and foot and lowest > foot + crown_from then
+			local data = {}
+			for index, node in ipairs(schematic.data) do
+				data[index] = {name = node.name, prob = node.prob, param2 = node.param2}
+			end
+			for y = foot + crown_from, lowest - 1 do
+				for z = 0, size.z - 1 do
+					for x = 0, size.x - 1 do
+						local from = cell(lowest, z, x)
+						local index = (z * size.y + y) * size.x + x + 1
+						if kind(from) == "leaves" and not kind(data[index]) then
+							data[index] = {name = from.name, param2 = from.param2}
+						end
+					end
+				end
+			end
+			schematic = {size = size, data = data}
+		end
 	end
 	local sx, sy, sz = schematic.size.x, schematic.size.y, schematic.size.z
 	local function at(x, y, z)
@@ -882,22 +922,43 @@ local function widen(schematic, factor, branches)
 	local function put(x, y, z, node)
 		data[(z * sy + y) * nx + x + 1] = {name = node.name, param2 = node.param2}
 	end
+	-- How far the leaves of the original reach from the trunk at most.
+	local reach = 0
+	for z = 0, sz - 1 do
+		for y = low, high do
+			for x = 0, sx - 1 do
+				local _, kind = at(x, y, z)
+				if kind == "leaves" then
+					reach = math.max(reach, math.abs(x - cx), math.abs(z - cz))
+				end
+			end
+		end
+	end
 	local half = {}   -- how far the leaves reach from the trunk, per layer
 	for y = 0, sy - 1 do
 		local t = high > low and (y - low) / (high - low) or 0
 		local grow = 1
-		if t > 0 and t < 1 then
+		if not bell and t > 0 and t < 1 then
 			grow = 1 + (factor - 1) * math.sin(math.pi * t) ^ 0.7
 		end
+		-- A bell has a radius of its own for every layer: widest at the
+		-- lower end of the crown, narrowing to the top.
+		local radius = bell and y >= low and y <= high
+			and 1.2 + (factor * reach - 1.2) * math.cos(math.pi / 2 * t) ^ 0.7
 		half[y] = 0
 		for z = 0, nz - 1 do
 			for x = 0, nx - 1 do
 				local from_x = math.floor(cx + (x - pad - cx) / grow + 0.5)
 				local from_z = math.floor(cz + (z - pad - cz) / grow + 0.5)
 				local node, kind = at(from_x, y, from_z)
+				local dx, dz = x - pad - cx, z - pad - cz
 				if kind == "leaves" then
 					put(x, y, z, node)
-					half[y] = math.max(half[y], math.abs(x - pad - cx), math.abs(z - pad - cz))
+					half[y] = math.max(half[y], math.abs(dx), math.abs(dz))
+				elseif radius and math.sqrt(dx * dx + dz * dz)
+						<= radius * (0.86 + 0.24 * variant_chance(x, y, z, 3)) then
+					put(x, y, z, {name = leaf_name})
+					half[y] = math.max(half[y], math.abs(dx), math.abs(dz))
 				end
 			end
 		end
@@ -1103,7 +1164,7 @@ local function lay_out_selection()
 					if (form.vary or form.stretch or form.roots or form.widen) and tree.schematic then
 						local schematic = tree.schematic
 						if form.widen then
-							schematic = widen(schematic, form.widen, form.branches)
+							schematic = widen(schematic, form.widen, form.branches, form.bell, form.crown_from)
 						end
 						if form.stretch or form.roots then
 							schematic = reshape(schematic, form.stretch or 0, form.roots)

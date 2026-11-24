@@ -17,8 +17,9 @@
 -- number as its fourth argument. stretch makes the bare trunk of a form
 -- that many blocks longer, roots puts about that many trunk blocks on the
 -- ground around its foot. widen pushes the leaves of the crown outwards
--- by up to that factor, most at half its height, and branches adds that
--- many short branches from the trunk to its rim.
+-- by up to that factor, most at half its height or, with bell, at its
+-- lower end; crown_from lets the crown begin that high above the foot;
+-- branches adds that many short branches from the trunk to its rim.
 --
 -- hanging_texture is the texture of the leaves. With it the catalogue
 -- makes a block of hanging leaves for the species: the same leaves, cut
@@ -213,13 +214,14 @@ return {
 			{tree = "BB-T6", label = "mittel"},
 			{tree = "BB-T6", label = "mittel_Variante_1", vary = 1},
 			{tree = "BB-T6", label = "mittel_Variante_2", vary = 2},
-			-- Large: the aspen the author chose, its crown widened towards a
-			-- ball and with short branches in the manner of the elder form.
-			-- The crown still begins near the ground. A form with a high
-			-- bare trunk, built by Claude before, was not what he wanted.
-			{tree = "BB-T7", label = "gross", widen = 1.8, branches = 6},
-			{tree = "BB-T7", label = "gross_Variante_1", widen = 1.8, branches = 6, vary = 1},
-			{tree = "BB-T7", label = "gross_Variante_2", widen = 1.8, branches = 6, vary = 2},
+			-- Large: the aspen the author chose, its crown widened to a bell:
+			-- it begins low, as in the smaller forms, is widest at its lower
+			-- end and narrows to the top. Short branches in the manner of the
+			-- elder form. A ball and a form with a high bare trunk, both
+			-- tried before, were not what he wanted.
+			{tree = "BB-T7", label = "gross", widen = 1.8, bell = true, crown_from = 3, branches = 6},
+			{tree = "BB-T7", label = "gross_Variante_1", widen = 1.8, bell = true, crown_from = 3, branches = 6, vary = 1},
+			{tree = "BB-T7", label = "gross_Variante_2", widen = 1.8, bell = true, crown_from = 3, branches = 6, vary = 2},
 			{tree = "BB-T7", label = "gross_bisher"},
 			-- Elder: the trunk five longer, to be taller than the large form,
 			-- and more roots, as the author asked.
