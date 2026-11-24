@@ -233,4 +233,26 @@ return {
 			{build = grown("beech", 1), label = "elder_Verfahren_Variante", vary = 1},
 		},
 	},
+	{
+		-- Old Wood, frequent. Chosen by the author on 2026-11-24: trunk and
+		-- leaves of the oak of More Trees, and as the large form a tree of
+		-- Aotearoa, AO-T47. The species is built after it; see species.lua.
+		name = "oak",
+		title = "Eiche",
+		trunk = "MT-T8",
+		leaves = "MT-T8",
+		category = "Hartholz",
+		planks = "EB33",
+		forms = {
+			{tree = "AO-T47", label = "Vorlage_gross"},
+			{build = grown("oak", 0.2), label = "klein"},
+			{build = grown("oak", 0.2), label = "klein_Variante", vary = 1},
+			{build = grown("oak", 0.4), label = "mittel"},
+			{build = grown("oak", 0.4), label = "mittel_Variante", vary = 1},
+			{build = grown("oak", 0.7), label = "gross"},
+			{build = grown("oak", 0.7), label = "gross_Variante", vary = 1},
+			{build = grown("oak", 1), label = "elder"},
+			{build = grown("oak", 1), label = "elder_Variante", vary = 1},
+		},
+	},
 }

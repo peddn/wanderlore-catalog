@@ -195,4 +195,80 @@ function species.beech(age, names, seed)
 	return tree:schematic()
 end
 
+--
+-- Oak
+--
+-- A gnarled tree: roots that run from its foot like a star, a thick trunk
+-- that forks low, and limbs that climb outwards from it to all sides and
+-- then stand upright, each with a flat plate of leaves on top. So the
+-- crown is plates at many heights with air between them, held up by
+-- visible wood. The large form follows a tree
+-- of Aotearoa the author picked, written from looking at it; the elder
+-- form is the same grown on.
+--
+-- Built back with age: fewer and shorter limbs, smaller plates, a lower
+-- fork, the trunk single and the roots gone. A young oak is a short trunk
+-- with two or three small plates.
+
+species.stages.oak = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
+
+local WAYS = {{1, 0}, {-1, 1}, {0, -1}, {1, 1}, {-1, 0}, {1, -1}, {0, 1}, {-1, -1}}
+
+function species.oak(age, names, seed)
+	local tree = kit.new(names, seed)
+	local fork = round(lerp(3, 8, age))
+	local top = fork + round(lerp(1, 15, age ^ 1.3))
+	local stout = age > 0.5
+	-- The trunk proper ends at the fork. Above it the tree is its limbs.
+	tree:stem(fork, stout and fork + 1 or 0)
+	if stout then
+		tree:star(round(lerp(4, 8, (age - 0.5) / 0.5)), lerp(1.5, 3.2, (age - 0.5) / 0.5))
+	end
+	local turn = round(tree:chance(1, 5, 0) * 7)
+	local plate = lerp(1.9, 4.1, age)
+
+	-- A limb climbs outwards, one block out for one up, then stands
+	-- upright for a little, and carries a plate of leaves.
+	local function limb(number, from, length, straight, size)
+		local way = WAYS[(number * 3 + turn) % 8 + 1]
+		local x, y, z = tree:branch(from, way[1], way[2], length, 1)
+		for _ = 1, straight do
+			y = y + 1
+			tree:set(x, y, z, "trunk")
+		end
+		tree:ball(x, y + 1, z, size, 1.15)
+		return x, y, z, way
+	end
+
+	-- The side limbs leave the trunk below the fork, the lowest first.
+	local sides = round(lerp(1, 6, age))
+	for number = 1, sides do
+		local from = round(lerp(math.max(2, fork - 5), fork, (number - 1) / math.max(1, sides - 1))
+			+ tree:chance(number, 2, 0) * 1.6 - 0.8)
+		local length = round(lerp(1.4, 4.4, age) * lerp(0.7, 1.2, tree:chance(number, 1, 0)))
+		limb(number, math.max(2, from), math.max(1, length), round(tree:chance(number, 3, 0) * 2),
+			plate * lerp(0.8, 1.05, tree:chance(number, 7, 0)))
+	end
+
+	-- The leaders start at the fork and go highest. Each carries a plate
+	-- on top and, when it is long, a second one on a twig halfway.
+	local leaders = stout and 3 or (age > 0.3 and 2 or 1)
+	for number = 1, leaders do
+		local reach = top - fork - (number - 1) * round(lerp(1, 4, age))
+		local length = math.max(1, round(lerp(1, 3, age) * lerp(0.7, 1.2, tree:chance(number, 11, 0))))
+		local x, y, z, way = limb(number + 20, fork, length, math.max(0, reach - length),
+			plate * lerp(0.85, 1.1, tree:chance(number, 12, 0)))
+		-- A long leader is not a bare pole: every fourth block of it a
+		-- twig to one side and the other carries a plate of its own.
+		local side = 1
+		for height = y - 3, fork + length + 2, -4 do
+			tree:set(x - way[2] * side, height, z + way[1] * side, "trunk", way[2] ~= 0 and 12 or 4)
+			tree:ball(x - way[2] * side * 2, height + 1, z + way[1] * side * 2,
+				plate * lerp(0.6, 0.8, tree:chance(number, 13, height)), 1.0)
+			side = -side
+		end
+	end
+	return tree:schematic()
+end
+
 return species

@@ -70,20 +70,45 @@ function kit:roots(count)
 end
 
 -- A branch from the trunk at height y towards dx, dz, of lying trunk
--- blocks, rising one block every `rise` steps. Returns where it ends.
+-- blocks, rising one block every `rise` steps. A branch that rises with
+-- every step is a limb: its blocks stand upright and it is filled in
+-- below each step, so that it holds together. Returns where it ends.
 function kit:branch(y, dx, dz, length, rise)
 	local x, z = 0, 0
 	if y < (self.thick or 0) then
 		x, z = dx > 0 and 1 or 0, dz > 0 and 1 or 0
 	end
+	local limb = rise == 1
 	for step = 1, length do
 		x, z = x + dx, z + dz
+		if limb then
+			self:set(x, y, z, "trunk")
+		end
 		if rise and step % rise == 0 then
 			y = y + 1
 		end
-		self:set(x, y, z, "trunk", dx ~= 0 and 12 or 4)
+		self:set(x, y, z, "trunk", limb and 0 or (dx ~= 0 and 12 or 4))
 	end
 	return x, y, z
+end
+
+-- Roots like a star: `count` of them run from the foot of a thick trunk
+-- along the ground, each up to `length` blocks, the first block of each
+-- two high.
+function kit:star(count, length)
+	local ways = {{1, 0}, {-1, -1}, {0, 1}, {1, -1}, {-1, 0}, {1, 1}, {0, -1}, {-1, 1}}
+	for index = 1, math.min(count, #ways) do
+		local dx, dz = ways[index][1], ways[index][2]
+		local x, z = dx > 0 and 1 or 0, dz > 0 and 1 or 0
+		local long = math.max(1, math.floor(length * (0.6 + 0.6 * self:chance(index, 0, 9)) + 0.5))
+		for step = 1, long do
+			x, z = x + dx, z + dz
+			self:set(x, 0, z, "trunk")
+			if step == 1 then
+				self:set(x, 1, z, "trunk")
+			end
+		end
+	end
 end
 
 -- A ball of leaves around a place, rx wide and ry high, ragged at its rim.
