@@ -1813,24 +1813,36 @@ local function shoot_selection(name, index)
 	local player = core.get_player_by_name(name)
 	local tree = plants.selected[index]
 	if player and not tree and plants.selected[index - 1] and not (what and not what.selection) then
-		-- At the end one picture of all forms side by side, to compare
-		-- their sizes. The forms of the first species only.
-		local first, last, height = plants.selected[1], nil, 0
+		-- At the end one picture per species of all its forms side by
+		-- side, to compare their sizes.
+		local rows, by_z = {}, {}
 		for _, one in ipairs(plants.selected) do
-			if one.z == first.z then
-				last = one
-				height = math.max(height, one.h)
+			local row = by_z[one.z]
+			if not row then
+				row = {first = one, height = 0}
+				by_z[one.z] = row
+				rows[#rows + 1] = row
 			end
+			row.last = one
+			row.height = math.max(row.height, one.h)
 		end
-		local left, right = first.x - view_of(first) / 2, last.x + view_of(last) / 2
-		local distance = 0.66 * math.max((right - left) / 1.15, height * 1.2) / (2 * HALF)
-		player:set_pos({x = (left + right) / 2, y = BASE_Y + height / 2 - 1.625, z = first.z - distance})
-		player:set_look_horizontal(0)
-		player:set_look_vertical(0)
-		core.after(8, function()
-			shot("row " .. first.shot_id:match("^(%u+)") .. " Reihe 0x0")
-			core.after(1.0, shoot_beds, name, 1)
-		end)
+		local function shoot_row(number)
+			local row = rows[number]
+			if not row or not core.get_player_by_name(name) then
+				return shoot_beds(name, 1)
+			end
+			local left = row.first.x - view_of(row.first) / 2
+			local right = row.last.x + view_of(row.last) / 2
+			local distance = 0.66 * math.max((right - left) / 1.15, row.height * 1.2) / (2 * HALF)
+			player:set_pos({x = (left + right) / 2, y = BASE_Y + row.height / 2 - 1.625, z = row.first.z - distance})
+			player:set_look_horizontal(0)
+			player:set_look_vertical(0)
+			core.after(8, function()
+				shot("row " .. row.first.shot_id:match("^(%u+)") .. " Reihe 0x0")
+				core.after(1.0, shoot_row, number + 1)
+			end)
+		end
+		shoot_row(1)
 		return
 	end
 	if not player or not tree or what and not what.selection then

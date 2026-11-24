@@ -191,4 +191,30 @@ return {
 			{build = elder_birch(ELDER_BROAD, true), label = "elder_Variante_2", vary = 2},
 		},
 	},
+	{
+		-- Blossom Downs and Old Wood, rare in both. Chosen by the author on
+		-- 2026-11-24: trunk and leaves of the beech of Extra Biomes on three
+		-- forms of the aspen and one of the oak of Better Biomes.
+		name = "beech",
+		title = "Buche",
+		trunk = "EB-T10",
+		leaves = "EB-T10",
+		category = "Hartholz",
+		planks = "EB33",
+		sapling = "MG24",
+		forms = {
+			{tree = "BB-T5", label = "klein"},
+			{tree = "BB-T5", label = "klein_Variante_1", vary = 1},
+			{tree = "BB-T5", label = "klein_Variante_2", vary = 2},
+			{tree = "BB-T6", label = "mittel"},
+			{tree = "BB-T6", label = "mittel_Variante_1", vary = 1},
+			{tree = "BB-T6", label = "mittel_Variante_2", vary = 2},
+			{tree = "BB-T7", label = "gross"},
+			{tree = "BB-T7", label = "gross_Variante_1", vary = 1},
+			{tree = "BB-T7", label = "gross_Variante_2", vary = 2},
+			{tree = "BB-T32", label = "elder"},
+			{tree = "BB-T32", label = "elder_Variante_1", vary = 1},
+			{tree = "BB-T32", label = "elder_Variante_2", vary = 2},
+		},
+	},
 }
