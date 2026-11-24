@@ -9,6 +9,8 @@
 -- also be built here: build is a function that gets the names of trunk,
 -- leaves and hanging leaves and returns a schematic.
 --
+-- A form with hang = true gets hanging leaves where its leaves hang free.
+--
 -- hanging_texture is the texture of the leaves. With it the catalogue
 -- makes a block of hanging leaves for the species: the same leaves, cut
 -- into strands. It is only there to judge the idea.
@@ -186,17 +188,21 @@ return {
 		trunk = "MT-T3",
 		leaves = "NB-T22",
 		hanging_texture = "naturalbiomes_heath_birch_leaves.png",
+		-- Blossom Downs. Five forms, chosen by the author on 2026-11-24; the
+		-- two elder forms were built by Claude. Each stands twice: as chosen
+		-- and with hanging leaves, to compare. hang turns the leaves that
+		-- hang free at the rim of a crown into hanging leaves.
 		forms = {
 			{tree = "EB-T20", label = "klein"},
+			{tree = "EB-T20", label = "klein_Haengelaub", hang = true},
 			{tree = "NB-T22", label = "mittel"},
+			{tree = "NB-T22", label = "mittel_Haengelaub", hang = true},
 			{tree = "NB-T21", label = "gross"},
-			-- Candidates for the elder form, built by Claude.
+			{tree = "NB-T21", label = "gross_Haengelaub", hang = true},
 			{build = elder_birch(ELDER_SLIM), label = "elder_schlank"},
-			{build = elder_birch(ELDER_BROAD), label = "elder_breit"},
 			{build = elder_birch(ELDER_SLIM, true), label = "elder_schlank_Haengelaub"},
+			{build = elder_birch(ELDER_BROAD), label = "elder_breit"},
 			{build = elder_birch(ELDER_BROAD, true), label = "elder_breit_Haengelaub"},
-			{build = elder_birch(ELDER_SLIM_BIG), label = "bisher_schlank"},
-			{build = elder_birch(ELDER_BROAD_BIG), label = "bisher_breit"},
 		},
 	},
 }

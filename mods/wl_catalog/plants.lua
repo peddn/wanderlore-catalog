@@ -706,7 +706,8 @@ local function lay_out_selection()
 					core.log("warning", "[wl_catalog] selection " .. species.name .. ": no tree " .. form.tree)
 				else
 					local copy = setmetatable({z = z, copy_of = tree, suffix = " sel " .. species.name .. index,
-						chosen = {trunk = trunk, leaves = leaves},
+						chosen = {trunk = trunk, leaves = leaves,
+							hanging = form.hang and "wl_catalog:hanging_" .. species.name or nil},
 						label = form.label or form.tree,
 						shot_id = species.name:upper() .. "-" .. index,
 						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
@@ -728,9 +729,11 @@ end
 -- Replaces every trunk and all leaves at the place of a chosen form by
 -- the chosen blocks. Whatever else the form brought, such as fruit, goes.
 local function rewrite(tree)
-	local reach = math.ceil(math.max(tree.w, tree.d) / 2) + 26
+	-- Only the place of this form: its neighbours stand close. A tree that
+	-- grew by rules has no known size and gets the whole of its slot.
+	local reach = math.ceil(math.max(tree.w, tree.d) / 2) + (tree.grown and 8 or 1)
 	local p1 = {x = tree.x - reach, y = BASE_Y, z = tree.z - reach}
-	local p2 = {x = tree.x + reach, y = BASE_Y + math.max(tree.h, 60) + 30, z = tree.z + reach}
+	local p2 = {x = tree.x + reach, y = BASE_Y + math.max(tree.h, tree.grown and 60 or 0) + 30, z = tree.z + reach}
 	local vmanip = VoxelManip()
 	local emin, emax = vmanip:read_from_map(p1, p2)
 	local area = VoxelArea(emin, emax)
@@ -762,6 +765,37 @@ local function rewrite(tree)
 					end
 				end
 				vi = vi + 1
+			end
+		end
+	end
+	-- Hanging leaves: in every column the lowest run of leaves, if it hangs
+	-- free at the rim of the crown, keeps its top leaf and turns the rest
+	-- into hanging leaves.
+	if tree.chosen.hanging and core.registered_nodes[tree.chosen.hanging] then
+		local hanging = core.get_content_id(tree.chosen.hanging)
+		local ystride, zstride = area.ystride, area.zstride
+		for z = p1.z, p2.z do
+			for x = p1.x, p2.x do
+				local vi = area:index(x, p1.y, z)
+				for y = p1.y, p2.y do
+					if data[vi] == leaves then
+						local run = 1
+						while data[vi + run * ystride] == leaves do
+							run = run + 1
+						end
+						local free = data[vi - ystride] == air and (data[vi - 1] == air or data[vi + 1] == air
+							or data[vi - zstride] == air or data[vi + zstride] == air)
+						if free and run >= 2 then
+							for step = 0, math.min(run - 2, 4) do
+								data[vi + step * ystride] = hanging
+							end
+						end
+						break
+					elseif data[vi] ~= air and data[vi] ~= ignore then
+						break
+					end
+					vi = vi + ystride
+				end
 			end
 		end
 	end
@@ -1230,6 +1264,8 @@ local function show_jump(name)
 		"style_type[label;font=bold]",
 		"label[0.4,0.6;Quellen – springe zu den Bäumen oder zum Gang der Beete]",
 		"style_type[label;font=normal]",
+		"style[selection;bgcolor=#3a7a3a]",
+		"button[14.4,0.15;6.6,0.8;selection;", esc("Auswahl für Wanderlore  (" .. #plants.selected .. ")"), "]",
 	}
 	for index, source in ipairs(plants.sources) do
 		local x = 0.4 + (index > rows and 10.5 or 0)
@@ -1260,6 +1296,13 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 		return false
 	end
 	local name = player:get_player_name()
+	if fields.selection and plants.selected[1] then
+		go_to(player, plants.selected[1])
+		core.close_formspec(name, JUMPNAME)
+		core.chat_send_player(name, "Auswahl für Wanderlore: " .. #plants.selected ..
+			" Formen. Die Reihe läuft nach rechts.")
+		return true
+	end
 	for field in pairs(fields) do
 		local kind, index = field:match("^(%a+)_(%d+)$")
 		local source = index and plants.sources[tonumber(index)]
@@ -1287,6 +1330,8 @@ local function show_kinds(name)
 		"formspec_version[7]size[21.4,", 1.3 + rows * 0.9 + 0.3, "]",
 		"style_type[label;font=bold]",
 		"label[0.4,0.6;Bäume nach Art – jede Reihe zeigt die Bäume aller Quellen]",
+		"style[selection;bgcolor=#3a7a3a]",
+		"button[14.4,0.15;6.6,0.8;selection;", esc("Auswahl für Wanderlore  (" .. #plants.selected .. ")"), "]",
 	}
 	for index, row in ipairs(plants.kinds) do
 		local x = 0.4 + math.floor((index - 1) / rows) * 7
@@ -1302,6 +1347,13 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 		return false
 	end
 	local name = player:get_player_name()
+	if fields.selection and plants.selected[1] then
+		go_to(player, plants.selected[1])
+		core.close_formspec(name, KINDNAME)
+		core.chat_send_player(name, "Auswahl für Wanderlore: " .. #plants.selected ..
+			" Formen. Die Reihe läuft nach rechts.")
+		return true
+	end
 	for field in pairs(fields) do
 		local row = plants.kinds[tonumber(field:match("^kind_(%d+)$") or "")]
 		if row then
