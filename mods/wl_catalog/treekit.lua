@@ -102,8 +102,10 @@ end
 
 -- A crown in one piece around the trunk, from height y1 to y2: round in
 -- every layer, widest (`radius`) at the share `peak` of its height and
--- flowing to a point at top and bottom, without steps.
-function kit:egg(y1, y2, radius, peak)
+-- flowing to a point at top and bottom, without steps. With `open`, the
+-- part below the widest place is only a rim, about that many blocks
+-- thick, so the tree is light inside; its two lowest layers are ragged.
+function kit:egg(y1, y2, radius, peak, open)
 	for y = y1, y2 do
 		local u = (y - y1 + 0.5) / (y2 - y1 + 1)
 		-- Rises to the peak and falls from it, each as a quarter wave.
@@ -113,7 +115,13 @@ function kit:egg(y1, y2, radius, peak)
 		local reach = math.ceil(r + 1)
 		for z = -reach, reach do
 			for x = -reach, reach do
-				if math.sqrt(x * x + z * z) <= r * (0.88 + 0.2 * self:chance(x, y, z)) + 0.35 then
+				local far = math.sqrt(x * x + z * z)
+				local edge = r * (0.88 + 0.2 * self:chance(x, y, z)) + 0.35
+				local inside = far <= edge
+				if inside and open and u < peak then
+					inside = far > edge - open and (y - y1 >= 2 or self:chance(x, y + 40, z) < 0.6)
+				end
+				if inside then
 					self:set(x, y, z, "leaves")
 				end
 			end

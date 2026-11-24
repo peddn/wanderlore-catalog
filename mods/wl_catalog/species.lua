@@ -77,16 +77,20 @@ function species.birch(age, names, seed)
 		end
 	else
 		-- A younger birch has no branches thick enough to be blocks. Its
-		-- crown is one piece: slender when young, fuller with the years,
-		-- widest in its lower third and flowing to a point at the top.
-		local base = round(lerp(2, 4, age))
-		local radius = 1 + 4.6 * (math.max(0, age - 0.2) / 0.8) ^ 0.75
+		-- crown is one piece: a leafy column when young, fuller with the
+		-- years, widest in its lower third and flowing to a point at the
+		-- top. From the middle years on its lower part is only a rim and
+		-- ragged, so that the tree is light inside and its strands show.
+		local base = round(lerp(2, 4, age)) + (age > 0.3 and 1 or 0)
+		local radius = 1.7 + 3.9 * (math.max(0, age - 0.2) / 0.8) ^ 0.75
 			+ (seed ~= 0 and (tree:chance(3, 1, 4) - 0.5) * 0.6 * age or 0)
-		tree:egg(base, top + 2, radius, 0.32)
+		tree:egg(base, top + 2, radius, age > 0.3 and 0.38 or 0.32, age > 0.3 and 1.5 or nil)
+		tree:strands(0.85, radius * 0.45, round(lerp(2, 5, age)), math.max(1, base - 3))
 	end
 
-	-- The younger the tree, the more of its rim hangs.
-	tree:strands(lerp(0.75, 0.45, age), lerp(0.9, 2.5, age), round(lerp(2, 6, age)), round(lerp(1, 5, age)))
+	if old then
+		tree:strands(0.45, 2.5, 6, 5)
+	end
 	return tree:schematic()
 end
 
