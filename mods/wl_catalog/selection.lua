@@ -14,7 +14,9 @@
 -- vary = 1, 2, ... makes a slightly different tree of the same form, as
 -- Wanderlore is to do when it places one: mirrored, the trunk a little
 -- longer or shorter, some leaves at the rim gone; a built form gets the
--- number as its fourth argument.
+-- number as its fourth argument. stretch makes the bare trunk of a form
+-- that many blocks longer, roots puts about that many trunk blocks on the
+-- ground around its foot.
 --
 -- hanging_texture is the texture of the leaves. With it the catalogue
 -- makes a block of hanging leaves for the species: the same leaves, cut
@@ -150,6 +152,86 @@ local function elder_birch(shape, strands)
 	end
 end
 
+-- A tree with a round crown on a single trunk, built by Claude: a bare
+-- trunk, a few branches that rise a little inside the crown, and a crown
+-- that is nearly a ball.
+--
+-- shape: W and H the size, bare how high the trunk is free, top where it
+-- ends, centre the height of the middle of the crown, rx and ry its
+-- radius sideways and upwards, branches as {height, dx, dz, length}.
+local function round_tree(shape)
+	return function(trunk, leaves, _, variant)
+		salt = variant or 0
+		local W, H = shape.W, shape.H
+		local c = math.floor(W / 2)
+		local cells = {}
+		local function key(x, y, z)
+			return (z * H + y) * W + x + 1
+		end
+		local function set(x, y, z, name, param2)
+			if x >= 0 and x < W and y >= 0 and y < H and z >= 0 and z < W then
+				local old = cells[key(x, y, z)]
+				if not old or name == trunk then
+					cells[key(x, y, z)] = {name = name, param2 = param2 or 0}
+				end
+			end
+		end
+		local function blob(cx, cy, cz, rx, ry)
+			for z = math.floor(cz - rx), math.ceil(cz + rx) do
+				for y = math.floor(cy - ry), math.ceil(cy + ry) do
+					for x = math.floor(cx - rx), math.ceil(cx + rx) do
+						local d = ((x - cx) / rx) ^ 2 + ((y - cy) / ry) ^ 2 + ((z - cz) / rx) ^ 2
+						if d <= 0.8 + 0.35 * chance(x, y, z) then
+							set(x, y, z, leaves)
+						end
+					end
+				end
+			end
+		end
+
+		local top = shape.top + (salt ~= 0 and math.floor(chance(1, 2, 3) * 3) - 1 or 0)
+		for y = 0, top do
+			set(c, y, c, trunk)
+		end
+		local lift = top - shape.top
+		blob(c, shape.centre + lift, c, shape.rx, shape.ry)
+		for number, branch in ipairs(shape.branches) do
+			local y, dx, dz, length = branch[1] + lift, branch[2], branch[3], branch[4]
+			if salt ~= 0 then
+				length = math.max(2, length + math.floor(chance(number, 1, 0) * 3) - 1)
+			end
+			local x, z = c, c
+			local lying = dx ~= 0 and 12 or 4
+			for step = 1, length do
+				x, z = x + dx, z + dz
+				if step % 2 == 0 then
+					y = y + 1
+				end
+				set(x, y, z, trunk, lying)
+			end
+			-- A bulge of the crown around the end of the branch.
+			blob(x, y + 0.5, z, shape.rx * 0.5, shape.ry * 0.45)
+		end
+
+		local data = {}
+		for index = 1, W * H * W do
+			data[index] = cells[index] or {name = "air", prob = 0}
+		end
+		return {size = {x = W, y = H, z = W}, data = data}
+	end
+end
+
+-- The large beech. The author found the form he had chosen first, a
+-- slender aspen of 7 by 20, too narrow: it needs some branches and a
+-- broader crown, more of a ball.
+local BEECH_LARGE = {
+	W = 13, H = 20, bare = 7, top = 15, centre = 13, rx = 4.6, ry = 5.4,
+	branches = {
+		{8, 1, 0, 4}, {9, -1, 0, 4}, {10, 0, 1, 4}, {9, 0, -1, 3},
+		{12, 1, 1, 3}, {12, -1, -1, 3},
+	},
+}
+
 -- The elder form the author chose: about one and a half times the large
 -- form, which is 9 by 14. A slim variant and two larger ones were dropped.
 local ELDER_BROAD = {
@@ -209,12 +291,18 @@ return {
 			{tree = "BB-T6", label = "mittel"},
 			{tree = "BB-T6", label = "mittel_Variante_1", vary = 1},
 			{tree = "BB-T6", label = "mittel_Variante_2", vary = 2},
-			{tree = "BB-T7", label = "gross"},
-			{tree = "BB-T7", label = "gross_Variante_1", vary = 1},
-			{tree = "BB-T7", label = "gross_Variante_2", vary = 2},
-			{tree = "BB-T32", label = "elder"},
-			{tree = "BB-T32", label = "elder_Variante_1", vary = 1},
-			{tree = "BB-T32", label = "elder_Variante_2", vary = 2},
+			-- Large: built by Claude, see BEECH_LARGE. The form chosen first
+			-- stands beside it to compare.
+			{build = round_tree(BEECH_LARGE), label = "gross"},
+			{build = round_tree(BEECH_LARGE), label = "gross_Variante_1", vary = 1},
+			{build = round_tree(BEECH_LARGE), label = "gross_Variante_2", vary = 2},
+			{tree = "BB-T7", label = "gross_bisher"},
+			-- Elder: the trunk five longer, to be taller than the large form,
+			-- and more roots, as the author asked.
+			{tree = "BB-T32", label = "elder", stretch = 5, roots = 10},
+			{tree = "BB-T32", label = "elder_Variante_1", stretch = 5, roots = 10, vary = 1},
+			{tree = "BB-T32", label = "elder_Variante_2", stretch = 5, roots = 10, vary = 2},
+			{tree = "BB-T32", label = "elder_bisher"},
 		},
 	},
 }

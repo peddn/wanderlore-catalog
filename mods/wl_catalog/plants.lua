@@ -820,6 +820,106 @@ local function vary(schematic, seed)
 	return {size = {x = sx, y = height, z = sz}, data = data}
 end
 
+-- Returns a copy of a schematic with a longer trunk and more roots, as
+-- the author asks for a form: stretch adds that many layers of bare
+-- trunk, roots puts about that many trunk blocks on the ground around
+-- the foot, some of them two high.
+local function reshape(schematic, stretch, roots)
+	if type(schematic) == "string" then
+		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
+	end
+	local sx, sy, sz = schematic.size.x, schematic.size.y, schematic.size.z
+	local layers = {}
+	for y = 0, sy - 1 do
+		local layer = {}
+		for z = 0, sz - 1 do
+			for x = 0, sx - 1 do
+				local node = schematic.data[(z * sy + y) * sx + x + 1]
+				layer[z * sx + x + 1] = {name = node.name, prob = node.prob, param2 = node.param2}
+			end
+		end
+		layers[#layers + 1] = layer
+	end
+	local function kind_of(node)
+		return node and node.name ~= "air" and (node.prob or 255) > 0 and plant_category[resolve(node.name)]
+	end
+
+	-- The highest layer that holds trunk and no leaves is repeated.
+	local bare
+	for index, layer in ipairs(layers) do
+		local trunk, leaves = false, false
+		for _, node in ipairs(layer) do
+			local kind = kind_of(node)
+			trunk = trunk or kind == "trunk"
+			leaves = leaves or kind == "leaves"
+		end
+		if trunk and not leaves then
+			bare = index
+		end
+	end
+	for _ = 1, bare and stretch or 0 do
+		local copy = {}
+		for index, node in ipairs(layers[bare]) do
+			copy[index] = {name = node.name, prob = node.prob, param2 = node.param2}
+		end
+		table.insert(layers, bare, copy)
+	end
+
+	-- Roots: around the trunk of the lowest layer, nearest places first.
+	if roots and roots > 0 then
+		local foot, trunk_name = {}, nil
+		for z = 0, sz - 1 do
+			for x = 0, sx - 1 do
+				local node = layers[1][z * sx + x + 1]
+				if kind_of(node) == "trunk" then
+					foot[#foot + 1] = {x = x, z = z}
+					trunk_name = trunk_name or node.name
+				end
+			end
+		end
+		local places = {}
+		for z = 0, sz - 1 do
+			for x = 0, sx - 1 do
+				if not kind_of(layers[1][z * sx + x + 1]) then
+					local nearest = math.huge
+					for _, cell in ipairs(foot) do
+						nearest = math.min(nearest, math.max(math.abs(cell.x - x), math.abs(cell.z - z))
+							+ 0.4 * math.min(math.abs(cell.x - x), math.abs(cell.z - z)))
+					end
+					if nearest <= 2.5 then
+						places[#places + 1] = {x = x, z = z, rank = nearest + 0.9 * variant_chance(x, 0, z, 7)}
+					end
+				end
+			end
+		end
+		table.sort(places, function(a, b)
+			return a.rank < b.rank
+		end)
+		for index = 1, math.min(roots, #places) do
+			local place = places[index]
+			layers[1][place.z * sx + place.x + 1] = {name = trunk_name, param2 = 0}
+			-- Next to the trunk a root may stand two high.
+			if place.rank < 1.6 and variant_chance(place.x, 1, place.z, 7) < 0.45 and layers[2] then
+				local above = layers[2][place.z * sx + place.x + 1]
+				if not kind_of(above) then
+					layers[2][place.z * sx + place.x + 1] = {name = trunk_name, param2 = 0}
+				end
+			end
+		end
+	end
+
+	local height = #layers
+	local data = {}
+	for z = 0, sz - 1 do
+		for y = 0, height - 1 do
+			for x = 0, sx - 1 do
+				data[(z * height + y) * sx + x + 1] = layers[y + 1][z * sx + x + 1]
+			end
+		end
+	end
+	return {size = {x = sx, y = height, z = sz}, data = data}
+end
+
 local function block_of(spec, kind)
 	local tree = plants.tree_by_id[spec]
 	if tree then
@@ -893,8 +993,15 @@ local function lay_out_selection()
 						label = form.label or form.tree,
 						shot_id = species.name:upper() .. "-" .. index,
 						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
-					if form.vary and tree.schematic then
-						copy.schematic = vary(tree.schematic, form.vary)
+					if (form.vary or form.stretch or form.roots) and tree.schematic then
+						local schematic = tree.schematic
+						if form.stretch or form.roots then
+							schematic = reshape(schematic, form.stretch or 0, form.roots)
+						end
+						if form.vary then
+							schematic = vary(schematic, form.vary)
+						end
+						copy.schematic = schematic
 						copy.w, copy.h, copy.d = copy.schematic.size.x, copy.schematic.size.y, copy.schematic.size.z
 					elseif form.scale and tree.schematic then
 						copy.schematic = enlarge(tree.schematic, form.scale)
