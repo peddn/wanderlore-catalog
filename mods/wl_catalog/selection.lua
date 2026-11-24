@@ -5,7 +5,8 @@
 --
 -- trunk and leaves name a block: by the number of a tree whose block is
 -- meant ("MT-T3"), by the number of a block ("MT3") or by its technical
--- name. A form names a tree by its number; scale enlarges it. A form can
+-- name. category names the wood category of the species and planks the
+-- block of its planks. A form names a tree by its number; scale enlarges it. A form can
 -- also be built here: build is a function that gets the names of trunk,
 -- leaves and hanging leaves and returns a schematic.
 --
@@ -159,6 +160,7 @@ return {
 		-- with hanging leaves; the elder form was built by Claude. hang turns
 		-- the leaves that hang free at the rim of a crown into hanging leaves.
 		category = "Weichholz",
+		planks = "EB25",
 		forms = {
 			{tree = "EB-T20", label = "klein", hang = true},
 			{tree = "NB-T22", label = "mittel", hang = true},

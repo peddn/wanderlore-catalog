@@ -423,6 +423,8 @@ local FAMILIES = {
 	{"Ahorn", {"maple"}},
 	{"Pappel und Espe", {"poplar", "aspen"}},
 	{"Weide", {"willow"}},
+	{"Erle", {"alder"}},
+	{"Esche", {"{ash}", "ash_"}},
 	{"Apfel", {"apple"}},
 	{"Kirsche", {"cherry", "sakura"}},
 	{"Zitrus", {"lemon", "orange", "citrus"}},
@@ -609,11 +611,15 @@ local function lay_out_planks()
 		pos = {x = -8, y = BASE_Y + 5, z = PLANK_Z},
 		text = "Bretter aller Quellen",
 	}
+	for _, sample in ipairs(plants.plank_samples) do
+		plants.planks[#plants.planks + 1] = sample
+	end
 end
 
 local function place_planks(entry)
-	local p1 = {x = entry.plank_x - 1, y = BASE_Y, z = PLANK_Z}
-	local p2 = {x = entry.plank_x + 1, y = BASE_Y + 2, z = PLANK_Z + 1}
+	local z = entry.plank_z or PLANK_Z
+	local p1 = {x = entry.plank_x - 1, y = BASE_Y, z = z}
+	local p2 = {x = entry.plank_x + 1, y = BASE_Y + 2, z = z + 1}
 	local vmanip = VoxelManip()
 	local emin, emax = vmanip:read_from_map(p1, p2)
 	local area = VoxelArea(emin, emax)
@@ -639,6 +645,7 @@ end
 
 local SELECTION_Z = -3000
 plants.selected = {}
+plants.plank_samples = {}
 
 -- Blocks have to be registered while the mods load, so the blocks of
 -- hanging leaves are made here, before anything else of the selection is
@@ -719,6 +726,14 @@ local function lay_out_selection()
 				pos = {x = -10, y = BASE_Y + 6, z = z},
 				text = "Auswahl: " .. species.title .. (species.category and " (" .. species.category .. ")" or ""),
 			}
+			-- The planks of its category stand as a small wall at the start.
+			local planks = species.planks and block_of(species.planks, "planks")
+			if planks then
+				plants.plank_samples[#plants.plank_samples + 1] = {
+					name = planks, id = species.category or "Bretter",
+					short = species.planks, plank_x = -8, plank_z = z,
+				}
+			end
 			local x = 0
 			for index, form in ipairs(species.forms) do
 				local tree = plants.tree_by_id[form.tree]
@@ -1022,8 +1037,9 @@ local function build(index)
 		local past = index - #plants.trees - #plants.copies - #plants.selected
 		local plank = plants.planks[past]
 		if plank then
-			local p1 = {x = plank.plank_x - 2, y = GROUND_BOTTOM, z = PLANK_Z - 2}
-			local p2 = {x = plank.plank_x + 2, y = BASE_Y + 3, z = PLANK_Z + 3}
+			local z = plank.plank_z or PLANK_Z
+			local p1 = {x = plank.plank_x - 2, y = GROUND_BOTTOM, z = z - 2}
+			local p2 = {x = plank.plank_x + 2, y = BASE_Y + 3, z = z + 3}
 			core.emerge_area(p1, p2, function(_, _, remaining)
 				if remaining == 0 then
 					core.after(0, function()
@@ -1095,7 +1111,7 @@ local function paginate()
 	end
 	-- Trunks, planks and leaves once more, those of all sources side by
 	-- side, to compare them.
-	for _, kind in ipairs({"trunk", "planks", "leaves"}) do
+	for _, kind in ipairs({"trunk", "planks", "leaves", "sapling"}) do
 		local group = {prefix = kind:upper(), title = CATEGORY_LABEL[kind] .. " aller Quellen",
 			license = "je Quelle, siehe deren Tafel", order = 1000 + CATEGORY_ORDER[kind]}
 		page = nil
@@ -1531,8 +1547,9 @@ local function update_huds()
 			end
 		end
 		for _, entry in ipairs(plants.planks) do
-			local key = entry.id .. " planks"
-			local near = math.abs(PLANK_Z - pos.z) < 40 and math.abs(entry.plank_x - pos.x) < 45
+			local key = entry.id .. " planks" .. (entry.plank_z or "")
+			local plank_z = entry.plank_z or PLANK_Z
+			local near = math.abs(plank_z - pos.z) < 60 and math.abs(entry.plank_x - pos.x) < 60
 			if near and not shown[key] then
 				shown[key] = player:hud_add({
 					type = "waypoint",
@@ -1540,7 +1557,7 @@ local function update_huds()
 					text = "",
 					precision = 0,
 					number = 0xFFFFFF,
-					world_pos = {x = entry.plank_x, y = BASE_Y + 3.6, z = PLANK_Z},
+					world_pos = {x = entry.plank_x, y = BASE_Y + 3.6, z = plank_z},
 				})
 			elseif not near and shown[key] then
 				player:hud_remove(shown[key])
