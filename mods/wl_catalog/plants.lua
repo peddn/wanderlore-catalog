@@ -656,7 +656,28 @@ local function lay_out_selection()
 			local x = 0
 			for index, form in ipairs(species.forms) do
 				local tree = plants.tree_by_id[form.tree]
-				if not tree then
+				if form.build then
+					-- A form built in selection.lua itself.
+					local ok, schematic = pcall(form.build, trunk, leaves)
+					if ok and type(schematic) == "table" then
+						local id = species.name:upper() .. "-" .. index
+						local copy = {z = z, id = id, shot_id = id, suffix = "", offset = 0,
+							source = {title = "Auswahl", prefix = "SEL", order = 0},
+							chosen = {trunk = trunk, leaves = leaves},
+							label = form.label or "gebaut",
+							name = species.title .. " " .. (form.label or "gebaut"),
+							schematic = schematic,
+							w = schematic.size.x, h = schematic.size.y, d = schematic.size.z,
+							made = {trunk_node = trunk, leaves_node = leaves}}
+						local slot = math.ceil(view_of(copy))
+						copy.x = x + math.floor(slot / 2)
+						x = x + slot
+						plants.selected[#plants.selected + 1] = copy
+					else
+						core.log("warning", "[wl_catalog] selection " .. species.name .. ": form " ..
+							index .. " could not be built: " .. tostring(schematic))
+					end
+				elseif not tree then
 					core.log("warning", "[wl_catalog] selection " .. species.name .. ": no tree " .. form.tree)
 				else
 					local copy = setmetatable({z = z, copy_of = tree, suffix = " sel " .. species.name .. index,
