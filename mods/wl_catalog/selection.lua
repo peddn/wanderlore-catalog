@@ -213,27 +213,24 @@ return {
 		category = "Hartholz",
 		planks = "EB33",
 		sapling = "MG24",
+		-- Each form twice: as the author approved it, and built by the way
+		-- of the species at that age, with one variant, to compare.
 		forms = {
 			{tree = "BB-T5", label = "klein"},
-			{tree = "BB-T5", label = "klein_Variante_1", vary = 1},
-			{tree = "BB-T5", label = "klein_Variante_2", vary = 2},
+			{build = grown("beech", 0.2), label = "klein_Verfahren"},
+			{build = grown("beech", 0.2), label = "klein_Verfahren_Variante", vary = 1},
 			{tree = "BB-T6", label = "mittel"},
-			{tree = "BB-T6", label = "mittel_Variante_1", vary = 1},
-			{tree = "BB-T6", label = "mittel_Variante_2", vary = 2},
-			-- Large: the elder form made smaller, to four fifths. The author
-			-- asked for this after three attempts to widen the aspen he had
-			-- chosen first, BB-T7, did not suit him: a ball, a bell and a
-			-- ball with notches.
+			{build = grown("beech", 0.4), label = "mittel_Verfahren"},
+			{build = grown("beech", 0.4), label = "mittel_Verfahren_Variante", vary = 1},
+			-- Large: the elder form made smaller, to four fifths.
 			{tree = "BB-T32", label = "gross", stretch = 5, roots = 10, tier = true, scale = 0.8},
-			{tree = "BB-T32", label = "gross_Variante_1", stretch = 5, roots = 10, tier = true, scale = 0.8, vary = 1},
-			{tree = "BB-T32", label = "gross_Variante_2", stretch = 5, roots = 10, tier = true, scale = 0.8, vary = 2},
-			-- Elder: the trunk five longer, to be taller than the large form,
-			-- and more roots, as the author asked. He approved it and then
-			-- asked for one more tier of branches at the bottom, for the
-			-- large form as well.
+			{build = grown("beech", 0.7), label = "gross_Verfahren"},
+			{build = grown("beech", 0.7), label = "gross_Verfahren_Variante", vary = 1},
+			-- Elder: the oak of Better Biomes with its trunk five longer, more
+			-- roots and one more tier of branches at the bottom.
 			{tree = "BB-T32", label = "elder", stretch = 5, roots = 10, tier = true},
-			{tree = "BB-T32", label = "elder_Variante_1", stretch = 5, roots = 10, tier = true, vary = 1},
-			{tree = "BB-T32", label = "elder_Variante_2", stretch = 5, roots = 10, tier = true, vary = 2},
+			{build = grown("beech", 1), label = "elder_Verfahren"},
+			{build = grown("beech", 1), label = "elder_Verfahren_Variante", vary = 1},
 		},
 	},
 }
