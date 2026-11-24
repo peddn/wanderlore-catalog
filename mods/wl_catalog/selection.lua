@@ -19,7 +19,8 @@
 -- ground around its foot. widen pushes the leaves of the crown outwards
 -- by up to that factor, most at half its height or, with bell, at its
 -- lower end; crown_from lets the crown begin that high above the foot;
--- branches adds that many short branches from the trunk to its rim.
+-- branches adds that many short branches from the trunk to its rim, and
+-- gaps clears the leaves around the ends of that many of them.
 --
 -- hanging_texture is the texture of the leaves. With it the catalogue
 -- makes a block of hanging leaves for the species: the same leaves, cut
@@ -214,14 +215,15 @@ return {
 			{tree = "BB-T6", label = "mittel"},
 			{tree = "BB-T6", label = "mittel_Variante_1", vary = 1},
 			{tree = "BB-T6", label = "mittel_Variante_2", vary = 2},
-			-- Large: the aspen the author chose, its crown widened to a bell:
-			-- it begins low, as in the smaller forms, is widest at its lower
-			-- end and narrows to the top. Short branches in the manner of the
-			-- elder form. A ball and a form with a high bare trunk, both
-			-- tried before, were not what he wanted.
-			{tree = "BB-T7", label = "gross", widen = 1.8, bell = true, crown_from = 3, branches = 6},
-			{tree = "BB-T7", label = "gross_Variante_1", widen = 1.8, bell = true, crown_from = 3, branches = 6, vary = 1},
-			{tree = "BB-T7", label = "gross_Variante_2", widen = 1.8, bell = true, crown_from = 3, branches = 6, vary = 2},
+			-- Large: the aspen the author chose, widened. The crown begins
+			-- low, as in the smaller forms, and is widest at half its height;
+			-- this silhouette the author picked from the attempts. Then, as
+			-- he asked: a little wider still, more branches, and small open
+			-- places as in the elder form. A bell, widest at its lower end,
+			-- and a form with a high bare trunk he turned down.
+			{tree = "BB-T7", label = "gross", widen = 2.1, crown_from = 3, branches = 10, gaps = 5},
+			{tree = "BB-T7", label = "gross_Variante_1", widen = 2.1, crown_from = 3, branches = 10, gaps = 5, vary = 1},
+			{tree = "BB-T7", label = "gross_Variante_2", widen = 2.1, crown_from = 3, branches = 10, gaps = 5, vary = 2},
 			{tree = "BB-T7", label = "gross_bisher"},
 			-- Elder: the trunk five longer, to be taller than the large form,
 			-- and more roots, as the author asked.

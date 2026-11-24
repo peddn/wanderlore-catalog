@@ -827,8 +827,9 @@ end
 -- stays as it is. crown_from lets the crown begin at that height above
 -- the foot, by repeating its lowest layer downwards. With branches, that
 -- many short ones reach from the trunk to the rim of the crown, as lying
--- trunk blocks.
-local function widen(schematic, factor, branches, bell, crown_from)
+-- trunk blocks, and with gaps the leaves around the ends of that many of
+-- them are cleared.
+local function widen(schematic, factor, branches, bell, crown_from, gaps)
 	if type(schematic) == "string" then
 		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
 	end
@@ -973,16 +974,48 @@ local function widen(schematic, factor, branches, bell, crown_from)
 		end
 	end
 	-- Branches: spread over the lower two thirds of the crown, each to
-	-- another side, ending just inside the rim.
+	-- another side, ending just inside the rim. Around the outer end of
+	-- some of them the leaves are cleared, so that small open places show
+	-- the branch, as in an elder form.
 	local tx, tz = math.floor(cx + 0.5) + pad, math.floor(cz + 0.5) + pad
-	local sides = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+	local sides = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
+	local function leaf_at(x, y, z)
+		if x < 0 or x >= nx or y < 0 or y >= sy or z < 0 or z >= nz then
+			return false
+		end
+		local node = data[(z * sy + y) * nx + x + 1]
+		return node.name == leaf_name and (node.prob or 255) > 0
+	end
 	for number = 1, branches or 0 do
-		local y = low + 1 + math.floor((number - 0.5) / branches * (high - low) * 0.66)
-		local side = sides[(number - 1) % 4 + 1]
-		local length = math.max(1, math.min(4, math.floor(half[y] or 0)))
+		local y = low + 1 + math.floor((number - 0.5) / branches * (high - low) * 0.7)
+		local side = sides[(number * 3 - 3) % 8 + 1]
+		local diagonal = side[1] ~= 0 and side[2] ~= 0
+		local length = math.max(1, math.min(5, math.floor((half[y] or 0) * (diagonal and 0.7 or 1))))
+		local ex, ez = tx, tz
 		for step = 1, length do
-			data[(( tz + side[2] * step) * sy + y) * nx + tx + side[1] * step + 1] =
-				{name = trunk_name, param2 = side[1] ~= 0 and 12 or 4}
+			ex, ez = tx + side[1] * step, tz + side[2] * step
+			data[(ez * sy + y) * nx + ex + 1] = {name = trunk_name, param2 = side[1] ~= 0 and 12 or 4}
+		end
+		if gaps and number % 2 == 0 and number / 2 <= gaps then
+			-- A notch in the crown along the branch, open to the outside:
+			-- three layers high and a narrow wedge wide. The leaves around
+			-- the end of the branch stay, as a tuft of their own.
+			local angle = math.atan2(side[2], side[1])
+			for dy = 0, 2 do
+				local reach = half[y + dy] or 0
+				for z = 0, nz - 1 do
+					for x = 0, nx - 1 do
+						local dx, dz = x - tx, z - tz
+						local far = math.sqrt(dx * dx + dz * dz)
+						local turn = math.abs((math.atan2(dz, dx) - angle + math.pi) % (2 * math.pi) - math.pi)
+						local tuft = (x - ex) ^ 2 + (z - ez) ^ 2 + dy * dy <= 2.6
+						if far >= 0.3 * reach + 1 and turn <= 0.42 + 0.12 * variant_chance(x, y + dy, z, number)
+								and not tuft and leaf_at(x, y + dy, z) then
+							data[(z * sy + y + dy) * nx + x + 1] = {name = "air", prob = 0}
+						end
+					end
+				end
+			end
 		end
 	end
 	return {size = {x = nx, y = sy, z = nz}, data = data}
@@ -1164,7 +1197,8 @@ local function lay_out_selection()
 					if (form.vary or form.stretch or form.roots or form.widen) and tree.schematic then
 						local schematic = tree.schematic
 						if form.widen then
-							schematic = widen(schematic, form.widen, form.branches, form.bell, form.crown_from)
+							schematic = widen(schematic, form.widen, form.branches, form.bell, form.crown_from,
+								form.gaps)
 						end
 						if form.stretch or form.roots then
 							schematic = reshape(schematic, form.stretch or 0, form.roots)
