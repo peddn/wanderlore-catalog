@@ -226,6 +226,10 @@ local function inspect(schematic)
 				end
 			elseif kind == "leaves" then
 				made.leaves = made.leaves + 1
+				trunk_count[name] = (trunk_count[name] or 0) + 1
+				if not made.leaves_node or trunk_count[name] > trunk_count[made.leaves_node] then
+					made.leaves_node = name
+				end
 			elseif kind and kind ~= "ground" and kind ~= "planks" then
 				made.plant = made.plant + 1
 			else
@@ -370,7 +374,8 @@ local function collect_trees()
 					offset = 0,
 					grown = true,
 					made = {total = 2, trunk = 1, leaves = 1, plant = 0, other = 0,
-						trunk_node = "moretrees:" .. tree .. "_trunk"},
+						trunk_node = "moretrees:" .. tree .. "_trunk",
+						leaves_node = "moretrees:" .. tree .. "_leaves"},
 					grow = function(pos)
 						if type(grow) == "function" then
 							grow(pos)
@@ -563,7 +568,8 @@ local function lay_out_kinds()
 			}
 		end
 		local slot = math.ceil(view_of(tree))
-		local copy = setmetatable({x = x + math.floor(slot / 2), z = row.z, copy_of = tree}, {__index = tree})
+		local copy = setmetatable({x = x + math.floor(slot / 2), z = row.z, copy_of = tree,
+			suffix = " copy"}, {__index = tree})
 		x = x + slot
 		row.trees[#row.trees + 1] = copy
 		plants.copies[#plants.copies + 1] = copy
@@ -581,6 +587,140 @@ local function viewpoint(tree)
 		y = BASE_Y + height / 2,
 		z = tree.z + (tree.shift_z or 0) - tree.d / 2 - distance,
 	}
+end
+
+--
+-- The selection
+--
+-- selection.lua lists what the author chose for Wanderlore. Each chosen
+-- form stands once more, between the beds and the rows by kind, with its
+-- trunk and leaves replaced by the chosen blocks.
+
+local SELECTION_Z = -3000
+plants.selected = {}
+
+-- Returns a schematic enlarged by a factor, each block of the result
+-- taken from the nearest one of the original.
+local function enlarge(schematic, factor)
+	if type(schematic) == "string" then
+		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
+	end
+	local from = schematic.size
+	local size = {x = math.ceil(from.x * factor), y = math.ceil(from.y * factor), z = math.ceil(from.z * factor)}
+	local data = {}
+	for z = 0, size.z - 1 do
+		local sz = math.min(from.z - 1, math.floor(z / factor))
+		for y = 0, size.y - 1 do
+			local sy = math.min(from.y - 1, math.floor(y / factor))
+			for x = 0, size.x - 1 do
+				local sx = math.min(from.x - 1, math.floor(x / factor))
+				local node = schematic.data[(sz * from.y + sy) * from.x + sx + 1]
+				data[#data + 1] = {name = node.name, prob = node.prob, param2 = node.param2}
+			end
+		end
+	end
+	return {size = size, data = data}
+end
+
+local function block_of(spec, kind)
+	local tree = plants.tree_by_id[spec]
+	if tree then
+		return kind == "trunk" and tree.made.trunk_node or tree.made.leaves_node
+	end
+	local entry = plants.node_by_id[spec]
+	if entry then
+		return entry.name
+	end
+	return core.registered_nodes[spec] and spec or nil
+end
+
+local function lay_out_selection()
+	local path = core.get_modpath("wl_catalog") .. "/selection.lua"
+	local ok, list = pcall(dofile, path)
+	if not ok or type(list) ~= "table" then
+		core.log("warning", "[wl_catalog] selection.lua could not be read: " .. tostring(list))
+		return
+	end
+	local row = 0
+	for _, species in ipairs(list) do
+		local trunk, leaves = block_of(species.trunk, "trunk"), block_of(species.leaves, "leaves")
+		if not trunk or not leaves then
+			core.log("warning", "[wl_catalog] selection " .. species.name .. ": trunk or leaves not found")
+		else
+			local z = SELECTION_Z - row * ROW_GAP
+			row = row + 1
+			plants.signs[#plants.signs + 1] = {
+				pos = {x = -10, y = BASE_Y + 6, z = z},
+				text = "Auswahl: " .. species.title,
+			}
+			local x = 0
+			for index, form in ipairs(species.forms) do
+				local tree = plants.tree_by_id[form.tree]
+				if not tree then
+					core.log("warning", "[wl_catalog] selection " .. species.name .. ": no tree " .. form.tree)
+				else
+					local copy = setmetatable({z = z, copy_of = tree, suffix = " sel " .. species.name .. index,
+						chosen = {trunk = trunk, leaves = leaves},
+						label = form.label or form.tree,
+						shot_id = species.name:upper() .. "-" .. index,
+						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
+					if form.scale and tree.schematic then
+						copy.schematic = enlarge(tree.schematic, form.scale)
+						copy.w, copy.h, copy.d = copy.schematic.size.x, copy.schematic.size.y, copy.schematic.size.z
+						copy.offset = math.floor(tree.offset * form.scale)
+					end
+					local slot = math.ceil(view_of(copy))
+					copy.x = x + math.floor(slot / 2)
+					x = x + slot
+					plants.selected[#plants.selected + 1] = copy
+				end
+			end
+		end
+	end
+end
+
+-- Replaces every trunk and all leaves at the place of a chosen form by
+-- the chosen blocks. Whatever else the form brought, such as fruit, goes.
+local function rewrite(tree)
+	local reach = math.ceil(math.max(tree.w, tree.d) / 2) + 26
+	local p1 = {x = tree.x - reach, y = BASE_Y, z = tree.z - reach}
+	local p2 = {x = tree.x + reach, y = BASE_Y + math.max(tree.h, 60) + 30, z = tree.z + reach}
+	local vmanip = VoxelManip()
+	local emin, emax = vmanip:read_from_map(p1, p2)
+	local area = VoxelArea(emin, emax)
+	local data = vmanip:get_data()
+	local air, ignore = core.CONTENT_AIR, core.CONTENT_IGNORE
+	local trunk, leaves = core.get_content_id(tree.chosen.trunk), core.get_content_id(tree.chosen.leaves)
+	local kinds, dropped = {}, 0
+	for z = p1.z, p2.z do
+		for y = p1.y, p2.y do
+			local vi = area:index(p1.x, y, z)
+			for _ = p1.x, p2.x do
+				local content = data[vi]
+				if content ~= air and content ~= ignore then
+					local kind = kinds[content]
+					if kind == nil then
+						kind = plant_category[core.get_name_from_content_id(content)] or false
+						kinds[content] = kind
+					end
+					if kind == "trunk" then
+						data[vi] = trunk
+					elseif kind == "leaves" then
+						data[vi] = leaves
+					else
+						data[vi] = air
+						dropped = dropped + 1
+					end
+				end
+				vi = vi + 1
+			end
+		end
+	end
+	vmanip:set_data(data)
+	vmanip:write_to_map(true)
+	if dropped > 0 then
+		core.log("action", "[wl_catalog] selection " .. tree.name .. ": " .. dropped .. " other blocks removed")
+	end
 end
 
 -- Measures what grew at the place of a tree, for the trees whose size is
@@ -727,7 +867,7 @@ local function place(tree)
 			core.log("warning", "[wl_catalog] " .. tree.id .. " did not grow: " .. tostring(err))
 		end
 		local size = measure(tree)
-		local key = tree.copy_of and tree.id .. " copy" or tree.id
+		local key = tree.id .. (tree.suffix or "")
 		if size then
 			measured[key] = size
 			apply_measure(tree, size)
@@ -741,8 +881,11 @@ local function place(tree)
 		if not ok or not result then
 			core.log("warning", "[wl_catalog] " .. tree.id .. " could not be placed: " .. tostring(result))
 			tree.failed = true
-			measured[tree.copy_of and tree.id .. " copy" or tree.id] = {failed = true}
+			measured[tree.id .. (tree.suffix or "")] = {failed = true}
 		end
+	end
+	if tree.chosen and not tree.failed then
+		rewrite(tree)
 	end
 end
 
@@ -750,8 +893,9 @@ end
 -- has laid the ground below it.
 local function build(index)
 	local tree = plants.trees[index] or plants.copies[index - #plants.trees]
+		or plants.selected[index - #plants.trees - #plants.copies]
 	if not tree then
-		local entry = plants.beds[index - #plants.trees - #plants.copies]
+		local entry = plants.beds[index - #plants.trees - #plants.copies - #plants.selected]
 		if not entry then
 			storage:set_int("built", 1)
 			storage:set_string("measured", core.serialize(measured))
@@ -1120,6 +1264,19 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 	return true
 end)
 
+core.register_chatcommand("auswahl", {
+	description = "Springt zur Auswahl für Wanderlore: die gewählten Formen mit den gewählten Blöcken",
+	func = function(name)
+		local player = core.get_player_by_name(name)
+		local first = plants.selected[1]
+		if not player or not first then
+			return false, "Es ist nichts ausgewählt."
+		end
+		go_to(player, first)
+		return true, "Auswahl: " .. #plants.selected .. " Formen. Die Reihe läuft nach rechts."
+	end,
+})
+
 core.register_chatcommand("arten", {
 	description = "Öffnet die Liste der Baumarten, um zu ihren Reihen zu springen",
 	func = function(name)
@@ -1185,8 +1342,8 @@ local function update_huds()
 				shown[tree.id] = nil
 			end
 		end
-		for _, tree in ipairs(plants.copies) do
-			local key = tree.id .. " copy"
+		for _, tree in ipairs(plants.standing) do
+			local key = tree.id .. tree.suffix
 			local near = math.abs(tree.z - pos.z) < 160 and math.abs(tree.x - pos.x) < 140
 			if near and not shown[key] then
 				shown[key] = player:hud_add({
@@ -1318,11 +1475,31 @@ local function shoot_beds(name, index)
 	end)
 end
 
+local function shoot_selection(name, index)
+	local player = core.get_player_by_name(name)
+	local tree = plants.selected[index]
+	if not player or not tree or what and not what.selection then
+		return shoot_beds(name, 1)
+	end
+	if tree.failed then
+		return shoot_selection(name, index + 1)
+	end
+	local pos = viewpoint(tree)
+	pos.y = pos.y - 1.625
+	player:set_pos(pos)
+	player:set_look_horizontal(0)
+	player:set_look_vertical(0)
+	core.after(2.5 + view_of(tree) / 40, function()
+		shot("sel " .. tree.shot_id .. " " .. tree.label:gsub("[^%w_.-]", "_") .. " " .. tree.w .. "x" .. tree.h)
+		core.after(1.0, shoot_selection, name, index + 1)
+	end)
+end
+
 local function shoot_trees(name, index)
 	local player = core.get_player_by_name(name)
 	local tree = plants.trees[index]
 	if not player or not tree or what and not what.trees then
-		return shoot_beds(name, 1)
+		return shoot_selection(name, 1)
 	end
 	if tree.failed or not wanted(tree.source) then
 		return shoot_trees(name, index + 1)
@@ -1400,6 +1577,7 @@ core.register_on_mods_loaded(function()
 	collect_trees()
 	lay_out()
 	lay_out_kinds()
+	lay_out_selection()
 	lay_out_beds()
 	paginate()
 	plants.page_groups = {}
@@ -1409,8 +1587,14 @@ core.register_on_mods_loaded(function()
 			plants.page_groups[#plants.page_groups + 1] = page.source
 		end
 	end
-	for _, copy in ipairs(plants.copies) do
-		local size = measured[copy.id .. " copy"]
+	plants.standing = {}
+	for _, list in ipairs({plants.copies, plants.selected}) do
+		for _, copy in ipairs(list) do
+			plants.standing[#plants.standing + 1] = copy
+		end
+	end
+	for _, copy in ipairs(plants.standing) do
+		local size = measured[copy.id .. copy.suffix]
 		if size and size.failed then
 			copy.failed = true
 		elseif size then
@@ -1453,7 +1637,8 @@ core.register_on_mods_loaded(function()
 
 	-- What stands where depends on the sources and on this file. A map
 	-- built for another arrangement cannot be repaired from here.
-	local arrangement = #plants.trees .. " " .. #plants.copies .. " " .. #plants.beds .. " " .. #plants.kinds
+	local arrangement = #plants.trees .. " " .. #plants.copies .. " " .. #plants.beds .. " " ..
+		#plants.kinds .. " " .. #plants.selected
 	if built and storage:get_string("arrangement") ~= arrangement then
 		plants.outdated = true
 		core.log("warning", "[wl_catalog] the map was built for another arrangement; run scripts/setup.sh")

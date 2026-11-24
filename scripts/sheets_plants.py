@@ -4,7 +4,7 @@
 Usage: sheets_plants.py <folder with pictures> <folder for the sheets> <kind>
        sheets_plants.py <pictures of trees> <folder for the sheets> kinds <table>
 
-The kind is "trees" or "beds"; "kinds" puts the trees on sheets by family
+The kind is "trees", "beds" or "selection"; "kinds" puts the trees on sheets by family
 and group instead of by source, after the table catalog_kinds.tsv that the
 mod writes into the world folder. In that case the species, the name of
 the trunk block, stands under each tree. A picture is named
@@ -58,7 +58,8 @@ def by_kind(shots, table):
 
 def main():
     shots, out, kind = sys.argv[1], sys.argv[2], sys.argv[3]
-    heading = {"trees": "Bäume", "beds": "Beete", "kinds": "Bäume nach Art"}[kind]
+    heading = {"trees": "Bäume", "beds": "Beete", "kinds": "Bäume nach Art",
+               "selection": "Auswahl"}[kind]
     os.makedirs(out, exist_ok=True)
     groups, order = {}, []
     if kind == "kinds":

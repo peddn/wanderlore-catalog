@@ -3,7 +3,7 @@
 # and one picture per tree, which scripts/sheets_plants.py puts on
 # overview sheets. Everything ends up in .dev/sheets-plants/.
 # Called by scripts/shots.sh plants [prefixes] [kinds]; the kinds are
-# pages, trees and beds.
+# pages, trees, selection and beds.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,14 +14,15 @@ display=":${WL_CATALOG_DISPLAY:-97}"
 only="${1:-}"
 what="${2:-}"
 beds="$dev/shots-beds"
+selection="$dev/shots-selection"
 
 if [ ! -f "$dev/worlds/plants/world.mt" ]; then
 	echo "No plants world yet. Run scripts/setup.sh first." >&2
 	exit 1
 fi
 
-rm -rf "$shots" "$beds"
-mkdir -p "$shots" "$beds" "$sheets" "$dev/home"
+rm -rf "$shots" "$beds" "$selection"
+mkdir -p "$shots" "$beds" "$selection" "$sheets" "$dev/home"
 ln -sfn "$dev" "$dev/home/.minetest"
 
 config="$dev/shots-plants.conf"
@@ -55,6 +56,7 @@ trap 'kill $luanti $xvfb 2>/dev/null || true' EXIT
 #   SHOT <number> page <prefix> <page>
 #   SHOT <number> tree <id> <name> <width>x<height>
 #   SHOT <number> bed <id> <name> <kind>
+#   SHOT <number> sel <id> <label> <width>x<height>
 last=0
 while kill -0 "$luanti" 2>/dev/null; do
 	line="$(grep -o 'SHOT [0-9]* [a-z]* .*' "$dev/debug.txt" 2>/dev/null | tail -1 || true)"
@@ -63,6 +65,8 @@ while kill -0 "$luanti" 2>/dev/null; do
 		kind="$(echo "$line" | awk '{print $3}')"
 		if [ "$kind" = "page" ]; then
 			file="$sheets/blocks_$(echo "$line" | awk '{printf "%s_%02d", $4, $5}').png"
+		elif [ "$kind" = "sel" ]; then
+			file="$selection/$(echo "$line" | awk '{printf "%04d %s %s %s", $2, $4, $5, $6}').png"
 		elif [ "$kind" = "bed" ]; then
 			file="$beds/$(echo "$line" | awk '{printf "%04d %s %s %s", $2, $4, $5, $6}').png"
 		else
@@ -86,4 +90,5 @@ done
 python3 "$repo/scripts/sheets_plants.py" "$shots" "$sheets" trees
 python3 "$repo/scripts/sheets_plants.py" "$shots" "$sheets" kinds "$dev/worlds/plants/catalog_kinds.tsv"
 python3 "$repo/scripts/sheets_plants.py" "$beds" "$sheets" beds
+python3 "$repo/scripts/sheets_plants.py" "$selection" "$sheets" selection
 echo "Sheets are in $sheets"
