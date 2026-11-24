@@ -11,14 +11,20 @@
 -- leaves and hanging leaves and returns a schematic.
 --
 -- A form with hang = true gets hanging leaves where its leaves hang free.
+-- vary = 1, 2, ... makes a slightly different tree of the same form, as
+-- Wanderlore is to do when it places one: mirrored, the trunk a little
+-- longer or shorter, some leaves at the rim gone; a built form gets the
+-- number as its fourth argument.
 --
 -- hanging_texture is the texture of the leaves. With it the catalogue
 -- makes a block of hanging leaves for the species: the same leaves, cut
 -- into strands. It is only there to judge the idea.
 
--- A number from 0 to 1 that depends only on the place.
+-- A number from 0 to 1 that depends only on the place and on salt, which
+-- a builder sets to the number of the variant it builds.
+local salt = 0
 local function chance(x, y, z)
-	local n = math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453
+	local n = math.sin(x * 127.1 + y * 311.7 + z * 74.7 + salt * 53.3) * 43758.5453
 	return n - math.floor(n)
 end
 
@@ -34,7 +40,8 @@ end
 -- from the trunk the curtains begin, blob the radius of a crown on a
 -- branch. With strands the curtains are of the block of hanging leaves.
 local function elder_birch(shape, strands)
-	return function(trunk, leaves, hanging)
+	return function(trunk, leaves, hanging, variant)
+		salt = variant or 0
 		local curtain = strands and hanging or leaves
 		local W, H = shape.W, shape.H
 		local c = math.floor(W / 2) - 1   -- the trunk stands on c and c + 1
@@ -78,8 +85,14 @@ local function elder_birch(shape, strands)
 			set(c + root[1], 0, c + root[2], trunk)
 		end
 
-		for _, branch in ipairs(shape.branches) do
+		for number, branch in ipairs(shape.branches) do
 			local y0, dx, dz, length = branch[1], branch[2], branch[3], branch[4]
+			-- A variant has some branches one longer or shorter and one
+			-- higher or lower.
+			if salt ~= 0 then
+				length = math.max(2, length + math.floor(chance(number, 1, 0) * 3) - 1)
+				y0 = y0 + math.floor(chance(number, 2, 0) * 3) - 1
+			end
 			local x, z = c + (dx > 0 and 1 or 0), c + (dz > 0 and 1 or 0)
 			if y0 > shape.thick then
 				x, z = c, c
@@ -165,9 +178,17 @@ return {
 		sapling = "EB86",
 		forms = {
 			{tree = "EB-T20", label = "klein", hang = true},
+			{tree = "EB-T20", label = "klein_Variante_1", hang = true, vary = 1},
+			{tree = "EB-T20", label = "klein_Variante_2", hang = true, vary = 2},
 			{tree = "NB-T22", label = "mittel", hang = true},
+			{tree = "NB-T22", label = "mittel_Variante_1", hang = true, vary = 1},
+			{tree = "NB-T22", label = "mittel_Variante_2", hang = true, vary = 2},
 			{tree = "NB-T21", label = "gross", hang = true},
+			{tree = "NB-T21", label = "gross_Variante_1", hang = true, vary = 1},
+			{tree = "NB-T21", label = "gross_Variante_2", hang = true, vary = 2},
 			{build = elder_birch(ELDER_BROAD, true), label = "elder"},
+			{build = elder_birch(ELDER_BROAD, true), label = "elder_Variante_1", vary = 1},
+			{build = elder_birch(ELDER_BROAD, true), label = "elder_Variante_2", vary = 2},
 		},
 	},
 }

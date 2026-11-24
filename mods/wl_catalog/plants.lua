@@ -695,6 +695,131 @@ local function enlarge(schematic, factor)
 	return {size = size, data = data}
 end
 
+-- A number from 0 to 1 that depends only on the place and the variant.
+local function variant_chance(x, y, z, seed)
+	local n = math.sin(x * 127.1 + y * 311.7 + z * 74.7 + seed * 53.3) * 43758.5453
+	return n - math.floor(n)
+end
+
+-- Returns a slightly different copy of a schematic, to make the trees of
+-- one form differ: mirrored for every second variant, the bare trunk one
+-- block longer or shorter, and a few leaves at the rim gone or added.
+local function vary(schematic, seed)
+	if type(schematic) == "string" then
+		schematic = core.read_schematic(schematic, {write_yslice_prob = "none"})
+	end
+	local sx, sy, sz = schematic.size.x, schematic.size.y, schematic.size.z
+	local function kind_at(data, height, x, y, z)
+		if x < 0 or x >= sx or y < 0 or y >= height or z < 0 or z >= sz then
+			return nil
+		end
+		local node = data[(z * height + y) * sx + x + 1]
+		if node.name == "air" or (node.prob or 255) == 0 then
+			return nil
+		end
+		return plant_category[resolve(node.name)] or "other"
+	end
+
+	-- The layers as lists, bottom first, mirrored along x if asked for.
+	local layers = {}
+	for y = 0, sy - 1 do
+		local layer = {}
+		for z = 0, sz - 1 do
+			for x = 0, sx - 1 do
+				local from = seed % 2 == 1 and sx - 1 - x or x
+				local node = schematic.data[(z * sy + y) * sx + from + 1]
+				layer[z * sx + x + 1] = {name = node.name, prob = node.prob, param2 = node.param2}
+			end
+		end
+		layers[#layers + 1] = layer
+	end
+
+	-- Bare layers hold trunk and no leaves. The highest of them is where
+	-- the trunk grows or shrinks.
+	local bare = {}
+	for index, layer in ipairs(layers) do
+		local trunk, leaves = false, false
+		for _, node in ipairs(layer) do
+			local kind = node.name ~= "air" and (node.prob or 255) > 0 and plant_category[resolve(node.name)]
+			trunk = trunk or kind == "trunk"
+			leaves = leaves or kind == "leaves"
+		end
+		if trunk and not leaves then
+			bare[#bare + 1] = index
+		end
+	end
+	local change = ({0, 1, -1})[seed % 3 + 1]
+	if #bare >= 1 and change > 0 then
+		for _ = 1, change do
+			local copy = {}
+			for index, node in ipairs(layers[bare[#bare]]) do
+				copy[index] = {name = node.name, prob = node.prob, param2 = node.param2}
+			end
+			table.insert(layers, bare[#bare], copy)
+		end
+	elseif #bare >= 3 and change < 0 then
+		table.remove(layers, bare[#bare])
+	elseif #bare >= 1 and change < 0 then
+		-- Too short to lose a block: it gains two instead, to differ
+		-- from the variant that gains one.
+		for _ = 1, 2 do
+			local copy = {}
+			for index, node in ipairs(layers[bare[#bare]]) do
+				copy[index] = {name = node.name, prob = node.prob, param2 = node.param2}
+			end
+			table.insert(layers, bare[#bare], copy)
+		end
+	end
+
+	local height = #layers
+	local data = {}
+	for z = 0, sz - 1 do
+		for y = 0, height - 1 do
+			for x = 0, sx - 1 do
+				data[(z * height + y) * sx + x + 1] = layers[y + 1][z * sx + x + 1]
+			end
+		end
+	end
+	-- At the rim: a leaf that touches only one other block may go, and
+	-- beside a leaf with much open air a new one may grow, sideways or
+	-- downwards. A leaf on top of the trunk stays, and nothing is left
+	-- hanging in the air.
+	local sides = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}, {0, 1, 0}}
+	local gone, grown = {}, {}
+	for z = 0, sz - 1 do
+		for y = 0, height - 1 do
+			for x = 0, sx - 1 do
+				if kind_at(data, height, x, y, z) == "leaves" then
+					local open = 0
+					for _, d in ipairs(sides) do
+						if not kind_at(data, height, x + d[1], y + d[2], z + d[3]) then
+							open = open + 1
+						end
+					end
+					local roll = variant_chance(x, y, z, seed)
+					if open == 5 and roll < 0.5 and kind_at(data, height, x, y - 1, z) ~= "trunk" then
+						gone[#gone + 1] = (z * height + y) * sx + x + 1
+					elseif open >= 3 and open <= 4 and roll > 0.82 then
+						local d = sides[math.floor(variant_chance(z, x, y, seed) * 5) + 1]
+						local nx, ny, nz = x + d[1], y + d[2], z + d[3]
+						if nx >= 0 and nx < sx and ny >= 1 and nz >= 0 and nz < sz
+								and not kind_at(data, height, nx, ny, nz) then
+							grown[#grown + 1] = {(nz * height + ny) * sx + nx + 1, data[(z * height + y) * sx + x + 1].name}
+						end
+					end
+				end
+			end
+		end
+	end
+	for _, index in ipairs(gone) do
+		data[index] = {name = "air", prob = 0}
+	end
+	for _, leaf in ipairs(grown) do
+		data[leaf[1]] = {name = leaf[2], param2 = 0}
+	end
+	return {size = {x = sx, y = height, z = sz}, data = data}
+end
+
 local function block_of(spec, kind)
 	local tree = plants.tree_by_id[spec]
 	if tree then
@@ -739,7 +864,8 @@ local function lay_out_selection()
 				local tree = plants.tree_by_id[form.tree]
 				if form.build then
 					-- A form built in selection.lua itself.
-					local ok, schematic = pcall(form.build, trunk, leaves, "wl_catalog:hanging_" .. species.name)
+					local ok, schematic = pcall(form.build, trunk, leaves, "wl_catalog:hanging_" .. species.name,
+						form.vary or 0)
 					if ok and type(schematic) == "table" then
 						local id = species.name:upper() .. "-" .. index
 						local copy = {z = z, id = id, shot_id = id, suffix = "", offset = 0,
@@ -767,7 +893,10 @@ local function lay_out_selection()
 						label = form.label or form.tree,
 						shot_id = species.name:upper() .. "-" .. index,
 						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
-					if form.scale and tree.schematic then
+					if form.vary and tree.schematic then
+						copy.schematic = vary(tree.schematic, form.vary)
+						copy.w, copy.h, copy.d = copy.schematic.size.x, copy.schematic.size.y, copy.schematic.size.z
+					elseif form.scale and tree.schematic then
 						copy.schematic = enlarge(tree.schematic, form.scale)
 						copy.w, copy.h, copy.d = copy.schematic.size.x, copy.schematic.size.y, copy.schematic.size.z
 						copy.offset = math.floor(tree.offset * form.scale)
