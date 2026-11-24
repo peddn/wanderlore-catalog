@@ -204,11 +204,11 @@ return {
 	},
 	{
 		-- Blossom Downs and Old Wood, rare in both. Chosen by the author on
-		-- 2026-11-24: trunk and leaves of the beech of Extra Biomes on three
-		-- forms of the aspen and one of the oak of Better Biomes.
+		-- 2026-11-24: the leaves of the beech of Extra Biomes and, after a
+		-- first choice of its trunk too, the trunk BB1 of Better Biomes.
 		name = "beech",
 		title = "Buche",
-		trunk = "EB-T10",
+		trunk = "BB1",
 		leaves = "EB-T10",
 		category = "Hartholz",
 		planks = "EB33",

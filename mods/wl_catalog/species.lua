@@ -121,8 +121,9 @@ local SLANTED = {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
 
 function species.beech(age, names, seed)
 	local tree = kit.new(names, seed)
-	local top = round(7 + 14 * age ^ 0.8)
-	local thick = age > 0.85 and round(14 * age) or 0
+	-- The elder form stands three blocks taller than its age alone gives.
+	local top = round(7 + 14 * age ^ 0.8) + (age > 0.85 and 3 or 0)
+	local thick = age > 0.85 and round(16 * age) or 0
 	tree:stem(top, thick)
 
 	if age < 0.55 then
@@ -137,24 +138,23 @@ function species.beech(age, names, seed)
 			local y = round(lerp(4, top, tree:chance(number, 4, 1)))
 			tree:ball(math.cos(turn) * 2.4, y, math.sin(turn) * 2.4, 1.8, 1.2)
 		end
-		for number = 1, count do
+		for number = 1, count + 4 do
 			local turn = tree:chance(number, 8, 1) * 2 * math.pi
-			local y = round(lerp(5, top, tree:chance(number, 9, 1)))
-			tree:bite(math.cos(turn) * radius, y, math.sin(turn) * radius, 1.5)
+			local y = round(lerp(4, top + 1, tree:chance(number, 9, 1)))
+			tree:bite(math.cos(turn) * radius * 0.85, y, math.sin(turn) * radius * 0.85, 1.7)
 		end
 		return tree:schematic()
 	end
 
 	tree:roots(round(lerp(2, 10, (age - 0.55) / 0.45)))
 	local scale = lerp(0.7, 1, (age - 0.55) / 0.45)
-	-- Only the elder form has its layers of leaves well apart. Before
-	-- that the crown is fuller: leaves along the trunk join the layers,
-	-- the balls are higher, fewer branches are missing, and between the
-	-- tiers there are twigs with leaves of their own. Single gaps stay.
+	-- The crown is full: leaves along the trunk join the layers, the
+	-- balls are high, few branches are missing, and between the tiers
+	-- there are twigs with leaves of their own. Single gaps stay. The
+	-- elder form is a little more open than the large one, but its balls
+	-- of leaves still touch.
 	local full = age < 0.85
-	if full then
-		tree:egg(round(BEECH_TIERS[1][1] * top / 21), top + 1, 2.4, 0.4)
-	end
+	tree:egg(round(BEECH_TIERS[1][1] * top / 21), top + 1, full and 2.4 or 2.8, 0.4)
 	for number, tier in ipairs(BEECH_TIERS) do
 		local sides = number % 2 == 1 and STRAIGHT or SLANTED
 		local turn = round(tree:chance(number, 5, 0) * 3)
@@ -167,7 +167,7 @@ function species.beech(age, names, seed)
 			-- No tree grows evenly: every branch has a height, a length
 			-- and a ball of leaves of its own, and some of the branches
 			-- of a full tier are missing.
-			local there = tier[2] < 4 or tree:chance(number, 6, index) > (full and 0.1 or 0.2)
+			local there = tier[2] < 4 or tree:chance(number, 6, index) > 0.1
 			if there then
 				local y = round(tier[1] * top / 21 + tree:chance(number, 2, index) * 3 - 1.5)
 				local length = tier[3] * scale * (sides == SLANTED and 0.75 or 1)
@@ -175,11 +175,11 @@ function species.beech(age, names, seed)
 				length = math.max(1, round(length))
 				local size = 3 * scale * lerp(0.8, 1.1, tree:chance(number, 7, index))
 				local x, by, z = tree:branch(math.max(4, y), side[1], side[2], length, 3)
-				tree:ball(x, by + 1, z, size, size * (full and 0.8 or 0.6))
+				tree:ball(x, by + 1, z, size, size * (full and 0.8 or 0.72))
 				if length >= 3 then
-					tree:ball(x - side[1] * 2, by + 1, z - side[2] * 2, size * 0.8, size * (full and 0.65 or 0.5))
+					tree:ball(x - side[1] * 2, by + 1, z - side[2] * 2, size * 0.8, size * (full and 0.65 or 0.6))
 				end
-				if full and tree:chance(number, 10, index) < 0.7 then
+				if tree:chance(number, 10, index) < (full and 0.7 or 0.6) then
 					-- A twig between this tier and the next, to the side.
 					local other = sides == STRAIGHT and SLANTED or STRAIGHT
 					local to = other[(index - 1 + turn) % 4 + 1]
