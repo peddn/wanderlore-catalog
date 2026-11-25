@@ -323,6 +323,13 @@ function species.oak(age, names, seed)
 			tree:set(x, y, z, "trunk")
 		end
 		leaves(x, y + 1, z, tuft * lerp(0.85, 1.15, tree:chance(number, 9, 0)))
+		-- In the middle years leaves hang below the lowest limbs too, so
+		-- that their wood does not show bare from the side.
+		if not stout and place.rim and #path > 0 then
+			tree:ball(x, y - 1, z, tuft * 0.8, 1.2, 0.3)
+			local half = path[math.max(1, round(#path * 0.5))]
+			tree:ball(half.x, half.y - 1, half.z, tuft * 0.7, 1.1, 0.3)
+		end
 		-- A long limb carries leaves on its way as well.
 		if #path >= 8 then
 			local half = path[round(#path * 0.6)]
