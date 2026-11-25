@@ -356,4 +356,88 @@ function species.oak(age, names, seed)
 	return tree:schematic()
 end
 
+--
+-- Maple
+--
+-- Written after a photograph of an old maple the author gave, and his
+-- words for it: the shape of a pine nut, but rather flat below and not
+-- too pointed above.
+--
+--  * The crown is an egg standing on its broad end: widest in its lower
+--    quarter, flat below, rounded above, about one and a third times as
+--    high as wide. It begins low, a little above the ground.
+--  * The trunk is short and thick. A stem goes on through the crown to
+--    its top, and the limbs leave it steeply upwards, all of them.
+--  * The crown is dense: lumps of leaves all over its skin and leaves
+--    inside, so that one hardly sees wood or sky through it.
+--
+-- Built back with age: lower and slimmer in the same shape; the trunk
+-- single; fewer rings of lumps; only the large and the elder form have
+-- limbs of wood.
+
+species.stages.maple = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
+
+function species.maple(age, names, seed)
+	local tree = kit.new(names, seed)
+	local height = round(7 + 23 * age)
+	local width = round(height * 0.74)
+	local stout = age > 0.5
+	local trunk = math.max(2, round(height * 0.14))
+	local top = height - 3
+	tree:stem(top, stout and round(height * 0.4) or 0)
+	if stout then
+		tree:roots(round(lerp(3, 7, (age - 0.5) / 0.5)))
+	elseif age > 0.3 then
+		tree:roots(2)
+	end
+
+	-- How far the crown reaches from the stem at a share of its height.
+	local PEAK = 0.24
+	local function reach(u)
+		if u < PEAK then
+			return math.sin(math.pi / 2 * (0.55 + 0.45 * u / PEAK))
+		end
+		return math.cos(math.pi / 2 * (u - PEAK) / (1 - PEAK)) ^ 0.7
+	end
+
+	local lump = math.max(1.8, width * 0.15)
+	local base = trunk + 1
+	local across, upward = width / 2 - lump * 0.6, height - base - 1
+	-- Leaves inside, around the stem.
+	for y = base, height - 2 do
+		local r = across * 0.78 * reach((y - base) / upward)
+		for z = -math.ceil(r), math.ceil(r) do
+			for x = -math.ceil(r), math.ceil(r) do
+				if x * x + z * z <= r * r and tree:chance(x, y, z) > 0.18 then
+					tree:set(x, y, z, "leaves")
+				end
+			end
+		end
+	end
+	-- Lumps on the skin, in rings, each ring turned against the last.
+	local levels = stout and {0.06, 0.26, 0.46, 0.64, 0.8} or (age > 0.3 and {0.08, 0.34, 0.6} or {0.12, 0.5})
+	local spin = tree:chance(2, 5, 0) * 2 * math.pi
+	for number, level in ipairs(levels) do
+		local ring = across * reach(level)
+		local fit = math.max(3, round(2 * math.pi * ring / (lump * 1.9)))
+		for index = 1, fit do
+			local turn = spin + number * 1.1 + (index + tree:chance(number, 5, index) * 0.5) * 2 * math.pi / fit
+			local x = round(math.cos(turn) * ring + tree:chance(number, 6, index) * 2 - 1)
+			local z = round(math.sin(turn) * ring + tree:chance(number, 8, index) * 2 - 1)
+			local y = round(base + level * upward + tree:chance(number, 7, index) * 2 - 1)
+			if stout then
+				-- Every limb climbs steeply to its lump.
+				local out = math.abs(x) + math.abs(z)
+				local from = math.max(trunk, math.min(top - 1, round(y - out * 1.5)))
+				tree:limb(0, from, 0, x, y, z)
+			end
+			local size = lump * lerp(0.85, 1.15, tree:chance(number, 9, index))
+			tree:ball(x, y + 1, z, size, size * 0.8, 0.15)
+		end
+	end
+	-- The rounded top.
+	tree:ball(0, top + 1, 0, lump * 0.9, lump * 0.8, 0.15)
+	return tree:schematic()
+end
+
 return species

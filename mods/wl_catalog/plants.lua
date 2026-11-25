@@ -658,6 +658,19 @@ do
 	end
 	mask = mask:gsub("%^", "\\^"):gsub(":", "\\:")
 	for _, species in ipairs(ok and type(list) == "table" and list or {}) do
+		-- Leaves in a colour of their own: the texture of leaves of a
+		-- source, recoloured. The species then names this block as its
+		-- leaves.
+		if species.tinted_leaves then
+			core.register_node("wl_catalog:leaves_" .. species.name, {
+				description = "Laub: " .. species.title,
+				drawtype = "allfaces_optional",
+				tiles = {species.tinted_leaves.texture .. species.tinted_leaves.change},
+				paramtype = "light",
+				waving = 1,
+				groups = {snappy = 3},
+			})
+		end
 		if species.hanging_texture then
 			core.register_node("wl_catalog:hanging_" .. species.name, {
 				description = "Hängendes Laub: " .. species.title,
@@ -1197,7 +1210,8 @@ local function rewrite(tree)
 					local kind = kinds[content]
 					if kind == nil then
 						local name = core.get_name_from_content_id(content)
-						kind = plant_category[name] or name:find("^wl_catalog:hanging_") and "keep" or false
+						kind = plant_category[name] or (name:find("^wl_catalog:hanging_")
+							or name:find("^wl_catalog:leaves_")) and "keep" or false
 						kinds[content] = kind
 					end
 					if kind == "keep" then

@@ -250,7 +250,6 @@ return {
 		sapling = "BB15",
 		-- The tree the species is written after stands alone as well, whole
 		-- and as its wood, for pictures from all sides.
-		study = {{build = grown("oak", 1), label = "elder"}},
 		forms = {
 			{tree = "AO-T47", label = "Vorlage_gross"},
 			{build = grown("oak", 0.2), label = "klein"},
@@ -261,6 +260,26 @@ return {
 			{build = grown("oak", 0.7), label = "gross_Variante", vary = 1},
 			{build = grown("oak", 1), label = "elder"},
 			{build = grown("oak", 1), label = "elder_Variante", vary = 1},
+		},
+	},
+	{
+		-- Old Wood, moderately frequent. Chosen by the author on 2026-11-25:
+		-- the trunk EB17 and the leaves MT38, but in a rich light green;
+		-- the form after a photograph, see species.lua.
+		name = "maple",
+		title = "Ahorn",
+		trunk = "EB17",
+		leaves = "wl_catalog:leaves_maple",
+		tinted_leaves = {texture = "moretrees_birch_leaves.png", change = "^[hsl:-25:30:22"},
+		category = "Weichholz",
+		planks = "EB25",
+		study = {{build = grown("maple", 1), label = "elder"}},
+		forms = {
+			{build = grown("maple", 0.2), label = "klein"},
+			{build = grown("maple", 0.4), label = "mittel"},
+			{build = grown("maple", 0.7), label = "gross"},
+			{build = grown("maple", 1), label = "elder"},
+			{build = grown("maple", 1), label = "elder_Variante", vary = 1},
 		},
 	},
 }
