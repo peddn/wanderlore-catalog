@@ -207,12 +207,14 @@ end
 --  * The trunk is short and thick: a bundle of stems, a fifth to a
 --    quarter of the height of the tree, on roots that run out over the
 --    ground like a star and stand high next to the trunk.
---  * All the great limbs leave the top of this trunk and fork on their
---    way. The lowest run out nearly level, as far as the crown is wide,
---    and their ends droop a little; the higher a limb aims, the steeper
---    it climbs. Close to the trunk the limbs are thick.
---  * The crown is half a ball, flat below and round above, wider than it
---    is high. Its flat underside lies just above the top of the trunk.
+--  * A stem goes on from the trunk through the middle of the crown. It
+--    thins quickly and ends as a slender upright branch, which sets the
+--    height of the tree.
+--  * The limbs leave this stem like a fan: the lowest run out level, as
+--    far as the crown is wide, and their ends droop a little; the higher
+--    a limb leaves the stem, the steeper it points upwards.
+--  * The crown is half a ball, flat below and round above, one and a
+--    half times as wide as the tree is high.
 --  * The leaves sit in airy tufts around the ends of the limbs and along
 --    the long ones: lumpy, flattened balls with holes in them. They lie
 --    on the skin of the half ball in rings, and under them the crown is
@@ -225,13 +227,15 @@ species.stages.oak = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
 
 function species.oak(age, names, seed)
 	local tree = kit.new(names, seed)
-	local width = round(1 + 26 * age)
 	local height = round(6 + 16 * age)
+	local width = round(height * 1.5)
 	local stout = age > 0.5
 
-	-- The trunk: a core two by two and stems close beside it, all short.
+	-- The trunk: a bundle of stems, short. The stem in the middle goes
+	-- on: two by two for a little, then single up to the top.
 	local trunk = math.max(2, round(height * 0.24))
-	tree:stem(trunk + 1, stout and trunk + 1 or 0)
+	local top = height - 3
+	tree:stem(top, stout and trunk + round(height * 0.15) or 0)
 	if stout then
 		local beside = {{-1, 0}, {2, 1}, {0, 2}, {1, -1}, {-1, 1}, {2, 0}, {1, 2}, {0, -1}}
 		local first = round(tree:chance(1, 4, 0) * 7)
@@ -248,12 +252,13 @@ function species.oak(age, names, seed)
 	-- the top of the trunk. They lie in rings, the widest at the rim, so
 	-- that the crown is flat below and round above, and as many in a ring
 	-- as fit side by side; each is then moved a little.
-	local tuft = math.max(1.9, width * 0.14)
-	local base = trunk + 2
+	-- The flat underside of the crown lies above the trunk, which shows.
+	local tuft = math.max(1.9, width * 0.11)
+	local base = trunk + round(tuft * 0.6) + 1
 	local across, upward = width / 2 - tuft * 0.9, height - base - tuft * 0.7
 	local spin = tree:chance(2, 5, 0) * 2 * math.pi
 	local places = {}
-	for number, level in ipairs({0.06, 0.45, 0.76, 0.96}) do
+	for number, level in ipairs({0.06, 0.42, 0.72}) do
 		local ring = math.sqrt(1 - level * level)
 		local fit = math.max(1, round(2 * math.pi * across * ring / (tuft * 2.15)))
 		for index = 1, fit do
@@ -263,33 +268,28 @@ function species.oak(age, names, seed)
 				y = round(base + level * upward + tree:chance(number, 7, index) * 1.4 - 0.7),
 				z = round(math.sin(turn) * ring * across + tree:chance(number, 8, index) * 2 - 1),
 				rim = number == 1,
+				level = level,
 			}
 		end
 	end
-	-- The wood grows to the near places first, so that the far ones can
-	-- fork off limbs that are already there.
-	table.sort(places, function(a, b)
-		local far_a = math.abs(a.x) + math.abs(a.z) + (a.y - trunk)
-		local far_b = math.abs(b.x) + math.abs(b.z) + (b.y - trunk)
-		if far_a ~= far_b then
-			return far_a < far_b
-		end
-		return a.y < b.y
-	end)
-
 	-- A tuft: a flattened ball with holes and two smaller ones against
 	-- it, so that it is a lump and not a disc.
 	local function leaves(x, y, z, size)
-		tree:ball(x, y, z, size, size * 0.7, 0.22)
+		tree:ball(x, y, z, size, size * 0.7, 0.3)
 		for lump = 1, 2 do
 			local turn = tree:chance(x + lump, y, z) * 2 * math.pi
 			tree:ball(x + math.cos(turn) * size * 0.6, y + lump - 1, z + math.sin(turn) * size * 0.6,
-				size * 0.62, size * 0.5, 0.22)
+				size * 0.62, size * 0.5, 0.3)
 		end
 	end
 
 	for number, place in ipairs(places) do
-		local path = tree:reach(place.x, place.y, place.z, {x = 0.5, y = trunk, z = 0.5})
+		-- The fan: a limb leaves the stem lower than its end by as much as
+		-- its angle asks, level at the rim and steeper the higher it aims.
+		local out = math.abs(place.x) + math.abs(place.z)
+		local from = round(place.y - out * math.tan(math.rad(62 * place.level)))
+		from = math.max(trunk + 1, math.min(top - 1, from))
+		local path = tree:limb(0, from, 0, place.x, place.y, place.z)
 		local x, y, z = place.x, place.y, place.z
 		-- The end of a limb at the rim droops.
 		if place.rim and #path >= 5 then
@@ -310,6 +310,8 @@ function species.oak(age, names, seed)
 			leaves(half.x, half.y + 1, half.z, tuft * 0.7)
 		end
 	end
+	-- The tuft on the top of the stem.
+	leaves(0, top + 1, 0, tuft)
 	return tree:schematic()
 end
 

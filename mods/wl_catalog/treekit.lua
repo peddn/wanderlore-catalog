@@ -185,6 +185,32 @@ function kit:reach(tx, ty, tz, fork)
 	return path
 end
 
+-- A limb from one place to another, one block sideways or one up at a
+-- time, the steps up spread evenly over its length. A long limb is two
+-- blocks thick over its first third. Returns its blocks, from the start
+-- outwards.
+function kit:limb(x, y, z, tx, ty, tz)
+	local path = {}
+	local steps = math.abs(tx - x) + math.abs(tz - z) + math.max(0, ty - y)
+	local climb = ty - y
+	for step = 1, steps do
+		local dx, dz = tx - x, tz - z
+		if ty - y > 0 and (dx == 0 and dz == 0 or (climb - (ty - y)) / climb < step / steps) then
+			y = y + 1
+		elseif math.abs(dx) >= math.abs(dz) and dx ~= 0 then
+			x = x + (dx > 0 and 1 or -1)
+		elseif dz ~= 0 then
+			z = z + (dz > 0 and 1 or -1)
+		end
+		self:set(x, y, z, "trunk")
+		path[#path + 1] = {x = x, y = y, z = z}
+		if step <= steps / 3 and steps >= 6 and y > 1 and not self:get(x, y - 1, z) then
+			self:set(x, y - 1, z, "trunk")
+		end
+	end
+	return path
+end
+
 -- A ball of leaves around a place, rx wide and ry high, ragged at its
 -- rim. With `airy`, that share of its leaves outside the middle is left
 -- out, so that one sees through it here and there.
