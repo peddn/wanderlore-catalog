@@ -255,7 +255,16 @@ function species.oak(age, names, seed)
 		end
 		tree:star(8, width * 0.14, 3)
 	elseif age > 0.3 then
+		-- The middle years: a trunk of three blocks, the stem and two
+		-- beside it, up to where the limbs leave.
+		for y = 0, base do
+			tree:set(1, y, 0, "trunk")
+			tree:set(0, y, 1, "trunk")
+		end
 		tree:roots(3)
+	else
+		-- The young oak: a single root block at its foot.
+		tree:set(-1, 0, 0, "trunk")
 	end
 
 	-- The places of the tufts: on the skin of half a ball that stands on
@@ -325,6 +334,9 @@ function species.oak(age, names, seed)
 	leaves(0, top + 1, 0, tuft)
 	if not stout then
 		tree:ball(0, base + upward * 0.45, 0, across * 0.8, math.max(1.6, upward * 0.55), 0.3)
+		-- And a rounded top, so that the crown is not flat above.
+		tree:ball(0, top + 2, 0, across * 0.7, 2.2, 0.25)
+		tree:ball(0, top + 4, 0, across * 0.4, 1.4)
 	end
 	return tree:schematic()
 end
