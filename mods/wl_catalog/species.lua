@@ -240,9 +240,11 @@ function species.oak(age, names, seed)
 	-- on: two by two up to where the lowest limbs leave it, then single
 	-- up to the top. The stems of the bundle reach up to the limbs as
 	-- well, so that the trunk is as thick there as below.
-	local trunk = math.max(2, round(height * (stout and 0.24 or 0.3)))
+	-- The youngest has the shortest trunk of all.
+	local trunk = math.max(2, round(height * (stout and 0.24 or (age > 0.3 and 0.3 or 0.2))))
 	local base = trunk + round(tuft * 0.6) + 1
-	local top = height - 3
+	-- The youngest is lower by the block its trunk is shorter.
+	local top = height - 3 - (age > 0.3 and 0 or 1)
 	tree:stem(top, stout and base + 2 or 0)
 	if stout then
 		local beside = {{-1, 0}, {2, 1}, {0, 2}, {1, -1}, {-1, 1}, {2, 0}, {1, 2}, {0, -1}}
@@ -329,6 +331,12 @@ function species.oak(age, names, seed)
 			tree:ball(x, y - 1, z, tuft * 0.8, 1.2, 0.3)
 			local half = path[math.max(1, round(#path * 0.5))]
 			tree:ball(half.x, half.y - 1, half.z, tuft * 0.7, 1.1, 0.3)
+			-- And around the outer half of the limb at its own height, so
+			-- that no bare layer runs through the crown there.
+			for step = math.max(1, round(#path * 0.4)), #path do
+				tree:ball(path[step].x, path[step].y, path[step].z, 1.7, 1.0, 0.25)
+			end
+			tree:ball(x, y, z, tuft * 0.9, 1.2, 0.25)
 		end
 		-- A long limb carries leaves on its way as well.
 		if #path >= 8 then
