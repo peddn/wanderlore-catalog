@@ -249,7 +249,7 @@ return {
 		planks = "EB33",
 		-- The tree the species is written after stands alone as well, whole
 		-- and as its wood, for pictures from all sides.
-		study = {{tree = "AO-T47", label = "AO-T47"}, {build = grown("oak", 1), label = "elder"}},
+		study = {{build = grown("oak", 1), label = "elder"}},
 		forms = {
 			{tree = "AO-T47", label = "Vorlage_gross"},
 			-- For now only the large form, to hold against the tree it is

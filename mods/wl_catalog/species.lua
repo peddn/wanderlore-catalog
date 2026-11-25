@@ -198,104 +198,117 @@ end
 --
 -- Oak
 --
--- Written after a tree of Aotearoa the author picked as the large form,
--- from pictures of it from all sides, whole and as its wood alone. What
--- they show:
+-- Written after two things the author gave: a tree of Aotearoa in the
+-- catalogue, looked at from all sides, whole and as its wood alone, and
+-- then a photograph of an old oak standing free in a field, which he
+-- described. From the tree come the roots and the way the wood forks;
+-- from the photograph the proportions and the crown:
 --
---  * Roots like a star: eight of them run out over the ground, as long as
---    a third of the width of the crown, some with a kink. Next to the
---    trunk they stand two or three blocks high, so the foot is broad.
---  * No single trunk, but a bundle: a core and a few stems close beside
---    it that end at different heights, none above the middle of the tree.
---  * Limbs fork off this wood at every height and off one another. They
---    climb in steps like a stair, a block sideways, a block up. No piece
---    of wood runs far without forking: there are no poles.
---  * The leaves sit in tufts at the ends of the limbs: flattened balls,
---    about twice as wide as high, not plates.
---  * The tufts lie on the skin of a ball that is about as wide as high.
---    They cover a good half of it. Between them one sees the sky and,
---    inside, the wood: the tree is hollow.
+--  * The trunk is short and thick: a bundle of stems, a fifth to a
+--    quarter of the height of the tree, on roots that run out over the
+--    ground like a star and stand high next to the trunk.
+--  * All the great limbs leave the top of this trunk and fork on their
+--    way. The lowest run out nearly level, as far as the crown is wide,
+--    and their ends droop a little; the higher a limb aims, the steeper
+--    it climbs. Close to the trunk the limbs are thick.
+--  * The crown is half a ball, flat below and round above, wider than it
+--    is high. Its flat underside lies just above the top of the trunk.
+--  * The leaves sit in airy tufts around the ends of the limbs and along
+--    the long ones: lumpy, flattened balls with holes in them. They lie
+--    on the skin of the half ball in rings, and under them the crown is
+--    open: one sees the limbs from below.
 --
--- The elder form is the same tree, larger. How a younger oak is built
--- back is not worked out yet; for now it only gets smaller.
+-- The elder form is the model. How a younger oak is built back is not
+-- worked out yet; for now it only gets smaller.
 
 species.stages.oak = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
 
 function species.oak(age, names, seed)
 	local tree = kit.new(names, seed)
-	local width = round(1 + 20 * age)
-	-- The crown is as wide as it is high; below it the trunk shows for a
-	-- few blocks.
-	local height = round(7 + 18 * age)
+	local width = round(1 + 26 * age)
+	local height = round(6 + 16 * age)
 	local stout = age > 0.5
 
-	-- The bundle: the core to under half the height, the stems beside it
-	-- to different heights. Some stems bend outwards at the top.
-	local core = round(height * 0.45)
-	tree:stem(core, stout and core or 0)
+	-- The trunk: a core two by two and stems close beside it, all short.
+	local trunk = math.max(2, round(height * 0.24))
+	tree:stem(trunk + 1, stout and trunk + 1 or 0)
 	if stout then
-		local beside = {{-1, 0}, {2, 1}, {0, 2}, {1, -1}, {-1, 1}, {2, 0}}
-		local first = round(tree:chance(1, 4, 0) * 5)
-		for number = 1, round(lerp(3, 5, (age - 0.5) / 0.5)) do
-			local place = beside[(number + first) % 6 + 1]
-			local high = round(height * lerp(0.2, 0.55, tree:chance(number, 4, 1)))
-			for y = 0, high do
+		local beside = {{-1, 0}, {2, 1}, {0, 2}, {1, -1}, {-1, 1}, {2, 0}, {1, 2}, {0, -1}}
+		local first = round(tree:chance(1, 4, 0) * 7)
+		for number = 1, round(lerp(4, 7, (age - 0.5) / 0.5)) do
+			local place = beside[(number + first) % 8 + 1]
+			for y = 0, round(trunk * lerp(0.5, 1.1, tree:chance(number, 4, 1))) do
 				tree:set(place[1], y, place[2], "trunk")
 			end
-			if tree:chance(number, 4, 2) < 0.6 then
-				local out_x = place[1] < 0 and -1 or (place[1] > 1 and 1 or 0)
-				local out_z = place[2] < 0 and -1 or (place[2] > 1 and 1 or 0)
-				for y = high, high + 2 do
-					tree:set(place[1] + out_x, y, place[2] + out_z, "trunk")
-				end
-			end
 		end
-		tree:star(8, width * 0.27, round(lerp(2, 3, (age - 0.5) / 0.5)))
-		-- Leaders: from the top of the core the wood goes on upwards in
-		-- two or three arms that part, each in steps, so that the upper
-		-- tufts have wood near them.
-		local arms = {{1, 1}, {-1, 0}, {0, -1}}
-		for number = 1, age > 0.85 and 3 or 2 do
-			local arm = arms[(number + first) % 3 + 1]
-			local out = round(width * lerp(0.1, 0.18, tree:chance(number, 4, 3)))
-			tree:reach(arm[1] * out, round(height * lerp(0.62, 0.8, tree:chance(number, 4, 4))), arm[2] * out)
-		end
+		tree:star(8, width * 0.2, 3)
 	end
 
-	-- The tufts: flattened balls on the skin of a ball, spread evenly and
-	-- then moved a little, so many that they cover a good half of it.
-	local tuft = math.max(1.9, width * 0.18)
-	local floor = 3
-	local middle = (height + floor) / 2
-	local across, upward = width / 2 - tuft * 0.75, (height - floor) / 2 - tuft * 0.4
-	local count = math.max(3, round(0.6 * 4 * across * upward / (tuft * tuft)))
+	-- The places of the tufts: on the skin of half a ball that stands on
+	-- the top of the trunk. They lie in rings, the widest at the rim, so
+	-- that the crown is flat below and round above, and as many in a ring
+	-- as fit side by side; each is then moved a little.
+	local tuft = math.max(1.9, width * 0.14)
+	local base = trunk + 2
+	local across, upward = width / 2 - tuft * 0.9, height - base - tuft * 0.7
 	local spin = tree:chance(2, 5, 0) * 2 * math.pi
 	local places = {}
-	for number = 1, count do
-		-- From the top down to nearly the lowest point.
-		local level = 1 - 1.93 * (number - 0.5) / count
-		local ring = math.sqrt(math.max(0, 1 - level * level))
-		local turn = number * 2.39996 + spin
-		places[number] = {
-			x = round(math.cos(turn) * ring * across + tree:chance(number, 6, 0) * 2 - 1),
-			y = round(middle + level * upward + tree:chance(number, 7, 0) * 2 - 1),
-			z = round(math.sin(turn) * ring * across + tree:chance(number, 8, 0) * 2 - 1),
-		}
+	for number, level in ipairs({0.06, 0.45, 0.76, 0.96}) do
+		local ring = math.sqrt(1 - level * level)
+		local fit = math.max(1, round(2 * math.pi * across * ring / (tuft * 2.15)))
+		for index = 1, fit do
+			local turn = spin + number * 0.9 + (index + tree:chance(number, 5, index) * 0.5) * 2 * math.pi / fit
+			places[#places + 1] = {
+				x = round(math.cos(turn) * ring * across + tree:chance(number, 6, index) * 2 - 1),
+				y = round(base + level * upward + tree:chance(number, 7, index) * 1.4 - 0.7),
+				z = round(math.sin(turn) * ring * across + tree:chance(number, 8, index) * 2 - 1),
+				rim = number == 1,
+			}
+		end
 	end
 	-- The wood grows to the near places first, so that the far ones can
 	-- fork off limbs that are already there.
 	table.sort(places, function(a, b)
-		local far_a = math.abs(a.x) + math.abs(a.z) + math.abs(a.y - core)
-		local far_b = math.abs(b.x) + math.abs(b.z) + math.abs(b.y - core)
+		local far_a = math.abs(a.x) + math.abs(a.z) + (a.y - trunk)
+		local far_b = math.abs(b.x) + math.abs(b.z) + (b.y - trunk)
 		if far_a ~= far_b then
 			return far_a < far_b
 		end
 		return a.y < b.y
 	end)
+
+	-- A tuft: a flattened ball with holes and two smaller ones against
+	-- it, so that it is a lump and not a disc.
+	local function leaves(x, y, z, size)
+		tree:ball(x, y, z, size, size * 0.7, 0.22)
+		for lump = 1, 2 do
+			local turn = tree:chance(x + lump, y, z) * 2 * math.pi
+			tree:ball(x + math.cos(turn) * size * 0.6, y + lump - 1, z + math.sin(turn) * size * 0.6,
+				size * 0.62, size * 0.5, 0.22)
+		end
+	end
+
 	for number, place in ipairs(places) do
-		tree:reach(place.x, place.y, place.z)
-		local size = tuft * lerp(0.85, 1.15, tree:chance(number, 9, 0))
-		tree:ball(place.x, place.y + 1, place.z, size, size * 0.62)
+		local path = tree:reach(place.x, place.y, place.z, {x = 0.5, y = trunk, z = 0.5})
+		local x, y, z = place.x, place.y, place.z
+		-- The end of a limb at the rim droops.
+		if place.rim and #path >= 5 then
+			local out_x = x > 0 and 1 or (x < 0 and -1 or 0)
+			local out_z = z > 0 and 1 or (z < 0 and -1 or 0)
+			if math.abs(x) >= math.abs(z) then
+				out_z = 0
+			else
+				out_x = 0
+			end
+			x, y, z = x + out_x, y - 1, z + out_z
+			tree:set(x, y, z, "trunk")
+		end
+		leaves(x, y + 1, z, tuft * lerp(0.85, 1.15, tree:chance(number, 9, 0)))
+		-- A long limb carries leaves on its way as well.
+		if #path >= 8 then
+			local half = path[round(#path * 0.6)]
+			leaves(half.x, half.y + 1, half.z, tuft * 0.7)
+		end
 	end
 	return tree:schematic()
 end

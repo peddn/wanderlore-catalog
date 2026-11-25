@@ -129,60 +129,72 @@ end
 
 -- Wood to a place: finds the nearest wood that is not a root and not
 -- higher than the place, and builds a limb from there, one block
--- sideways or one up at a time, in steps like a stair. So every new limb
--- forks off one that is there already, and none stands alone as a pole.
-function kit:reach(tx, ty, tz)
+-- sideways or one up at a time, the steps up spread evenly over its
+-- length. So every new limb forks off wood that is there already, a limb
+-- to a place far out and low runs nearly level, and one to a place high
+-- up climbs steeply. A long limb is two blocks thick over its first
+-- third. With `fork`, the place where the limbs of the tree part, a limb
+-- may only fork off wood that lies in its own direction as seen from
+-- there: so the limbs spread like rays from the fork instead of leaving
+-- a mast at every height. Returns the blocks of the limb, from the wood
+-- outwards.
+function kit:reach(tx, ty, tz, fork)
 	local from, best = nil, math.huge
+	local ax, ay, az, along
+	if fork then
+		ax, ay, az = tx - fork.x, ty - fork.y, tz - fork.z
+		along = math.sqrt(ax * ax + ay * ay + az * az)
+	end
 	for _, cell in pairs(self.cells) do
 		if cell.kind == "trunk" and not cell.root and cell.y <= ty then
-			local sideways = math.abs(cell.x - tx) + math.abs(cell.z - tz)
-			local far = sideways + (ty - cell.y) * 0.8
-			-- A limb should climb. One that would run level counts as
-			-- longer, so that wood further down is chosen.
-			if ty - cell.y < sideways * 0.45 then
-				far = far + (sideways * 0.45 - (ty - cell.y)) * 1.5
+			local fits = true
+			if fork then
+				local bx, by, bz = cell.x - fork.x, cell.y - fork.y, cell.z - fork.z
+				local out = math.sqrt(bx * bx + by * by + bz * bz)
+				fits = out <= 2.5 or (ax * bx + ay * by + az * bz) / (along * out) >= 0.85
 			end
-			if far < best then
+			local far = math.abs(cell.x - tx) + math.abs(cell.z - tz) + (ty - cell.y)
+			if fits and far < best then
 				from, best = cell, far
 			end
 		end
 	end
+	local path = {}
 	if not from then
-		return
+		return path
 	end
 	local x, y, z = from.x, from.y, from.z
-	local turn = 0
-	while x ~= tx or y ~= ty or z ~= tz do
-		local dx, dy, dz = tx - x, ty - y, tz - z
-		local sideways = math.abs(dx) + math.abs(dz)
-		-- Up and sideways in turn while both are left to go.
-		local up = dy > 0 and (sideways == 0 or turn % 2 == 1 and dy * 1.2 >= sideways or dy > sideways)
-		if up then
+	local steps, climb = best, ty - y
+	for step = 1, steps do
+		local dx, dz = tx - x, tz - z
+		-- Up as soon as the share of the climb done falls behind the
+		-- share of the way done.
+		if ty - y > 0 and (dx == 0 and dz == 0 or (climb - (ty - y)) / climb < step / steps) then
 			y = y + 1
 		elseif math.abs(dx) >= math.abs(dz) and dx ~= 0 then
 			x = x + (dx > 0 and 1 or -1)
 		elseif dz ~= 0 then
 			z = z + (dz > 0 and 1 or -1)
-		else
-			y = y + (dy > 0 and 1 or -1)
 		end
-		turn = turn + 1
 		self:set(x, y, z, "trunk")
-		-- Where a limb leaves the wood it is thicker: a block below its
-		-- first steps.
-		if turn <= 2 and y > 1 and not self:get(x, y - 1, z) then
+		path[#path + 1] = {x = x, y = y, z = z}
+		if step <= math.max(2, steps / 3) and steps >= 6 and y > 1 and not self:get(x, y - 1, z) then
 			self:set(x, y - 1, z, "trunk")
 		end
 	end
+	return path
 end
 
--- A ball of leaves around a place, rx wide and ry high, ragged at its rim.
-function kit:ball(cx, cy, cz, rx, ry)
+-- A ball of leaves around a place, rx wide and ry high, ragged at its
+-- rim. With `airy`, that share of its leaves outside the middle is left
+-- out, so that one sees through it here and there.
+function kit:ball(cx, cy, cz, rx, ry, airy)
 	for z = math.floor(cz - rx), math.ceil(cz + rx) do
 		for y = math.floor(cy - ry), math.ceil(cy + ry) do
 			for x = math.floor(cx - rx), math.ceil(cx + rx) do
 				local d = ((x - cx) / rx) ^ 2 + ((y - cy) / ry) ^ 2 + ((z - cz) / rx) ^ 2
-				if d <= 0.75 + 0.45 * self:chance(x, y, z) then
+				if d <= 0.75 + 0.45 * self:chance(x, y, z)
+						and not (airy and d > 0.3 and self:chance(z, x + 50, y) < airy) then
 					self:set(x, y, z, "leaves")
 				end
 			end
