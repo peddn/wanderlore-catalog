@@ -220,32 +220,42 @@ end
 --    on the skin of the half ball in rings, and under them the crown is
 --    open: one sees the limbs from below.
 --
--- The elder form is the model. How a younger oak is built back is not
--- worked out yet; for now it only gets smaller.
+-- The elder form is the model. Built back with age: the tree is lower
+-- and, in proportion, narrower, down to as wide as high; the rings of
+-- tufts get fewer, three, then two, then one; the bundle and the star of
+-- roots go, leaving a single trunk; and the youngest has no limbs of
+-- wood at all, only a short trunk in a round crown.
 
 species.stages.oak = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
 
 function species.oak(age, names, seed)
 	local tree = kit.new(names, seed)
 	local height = round(6 + 16 * age)
-	local width = round(height * 1.5)
+	-- A young oak is about as wide as high; it spreads with the years.
+	local width = round(height * lerp(0.95, 1.5, age))
 	local stout = age > 0.5
+	local tuft = math.max(1.9, width * 0.11)
 
 	-- The trunk: a bundle of stems, short. The stem in the middle goes
-	-- on: two by two for a little, then single up to the top.
-	local trunk = math.max(2, round(height * 0.24))
+	-- on: two by two up to where the lowest limbs leave it, then single
+	-- up to the top. The stems of the bundle reach up to the limbs as
+	-- well, so that the trunk is as thick there as below.
+	local trunk = math.max(2, round(height * (stout and 0.24 or 0.3)))
+	local base = trunk + round(tuft * 0.6) + 1
 	local top = height - 3
-	tree:stem(top, stout and trunk + round(height * 0.15) or 0)
+	tree:stem(top, stout and base + 2 or 0)
 	if stout then
 		local beside = {{-1, 0}, {2, 1}, {0, 2}, {1, -1}, {-1, 1}, {2, 0}, {1, 2}, {0, -1}}
 		local first = round(tree:chance(1, 4, 0) * 7)
 		for number = 1, round(lerp(4, 7, (age - 0.5) / 0.5)) do
 			local place = beside[(number + first) % 8 + 1]
-			for y = 0, round(trunk * lerp(0.5, 1.1, tree:chance(number, 4, 1))) do
+			for y = 0, round(lerp(trunk, base + 1, tree:chance(number, 4, 1))) do
 				tree:set(place[1], y, place[2], "trunk")
 			end
 		end
-		tree:star(8, width * 0.2, 3)
+		tree:star(8, width * 0.14, 3)
+	elseif age > 0.3 then
+		tree:roots(3)
 	end
 
 	-- The places of the tufts: on the skin of half a ball that stands on
@@ -253,12 +263,11 @@ function species.oak(age, names, seed)
 	-- that the crown is flat below and round above, and as many in a ring
 	-- as fit side by side; each is then moved a little.
 	-- The flat underside of the crown lies above the trunk, which shows.
-	local tuft = math.max(1.9, width * 0.11)
-	local base = trunk + round(tuft * 0.6) + 1
+	-- A young oak has fewer rings.
 	local across, upward = width / 2 - tuft * 0.9, height - base - tuft * 0.7
 	local spin = tree:chance(2, 5, 0) * 2 * math.pi
 	local places = {}
-	for number, level in ipairs({0.06, 0.42, 0.72}) do
+	for number, level in ipairs(age > 0.55 and {0.06, 0.42, 0.72} or (age > 0.3 and {0.08, 0.5} or {0.15})) do
 		local ring = math.sqrt(1 - level * level)
 		local fit = math.max(1, round(2 * math.pi * across * ring / (tuft * 2.15)))
 		for index = 1, fit do
@@ -289,10 +298,11 @@ function species.oak(age, names, seed)
 		local out = math.abs(place.x) + math.abs(place.z)
 		local from = round(place.y - out * math.tan(math.rad(62 * place.level)))
 		from = math.max(trunk + 1, math.min(top - 1, from))
-		local path = tree:limb(0, from, 0, place.x, place.y, place.z)
+		-- A young oak has no limbs thick enough to be blocks.
+		local path = age > 0.3 and tree:limb(0, from, 0, place.x, place.y, place.z) or {}
 		local x, y, z = place.x, place.y, place.z
 		-- The end of a limb at the rim droops.
-		if place.rim and #path >= 5 then
+		if stout and place.rim and #path >= 5 then
 			local out_x = x > 0 and 1 or (x < 0 and -1 or 0)
 			local out_z = z > 0 and 1 or (z < 0 and -1 or 0)
 			if math.abs(x) >= math.abs(z) then
@@ -310,8 +320,12 @@ function species.oak(age, names, seed)
 			leaves(half.x, half.y + 1, half.z, tuft * 0.7)
 		end
 	end
-	-- The tuft on the top of the stem.
+	-- The tuft on the top of the stem. A young oak has leaves around its
+	-- stem as well: its crown is not open yet.
 	leaves(0, top + 1, 0, tuft)
+	if not stout then
+		tree:ball(0, base + upward * 0.45, 0, across * 0.8, math.max(1.6, upward * 0.55), 0.3)
+	end
 	return tree:schematic()
 end
 

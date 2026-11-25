@@ -252,13 +252,14 @@ return {
 		study = {{build = grown("oak", 1), label = "elder"}},
 		forms = {
 			{tree = "AO-T47", label = "Vorlage_gross"},
-			-- For now only the large form, to hold against the tree it is
-			-- written after, and the elder form with two variants. The
-			-- author wants the elder form right first.
+			{build = grown("oak", 0.2), label = "klein"},
+			{build = grown("oak", 0.2), label = "klein_Variante", vary = 1},
+			{build = grown("oak", 0.4), label = "mittel"},
+			{build = grown("oak", 0.4), label = "mittel_Variante", vary = 1},
 			{build = grown("oak", 0.7), label = "gross"},
+			{build = grown("oak", 0.7), label = "gross_Variante", vary = 1},
 			{build = grown("oak", 1), label = "elder"},
-			{build = grown("oak", 1), label = "elder_Variante_1", vary = 1},
-			{build = grown("oak", 1), label = "elder_Variante_2", vary = 2},
+			{build = grown("oak", 1), label = "elder_Variante", vary = 1},
 		},
 	},
 }
