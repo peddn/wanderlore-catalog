@@ -93,20 +93,85 @@ function kit:branch(y, dx, dz, length, rise)
 end
 
 -- Roots like a star: `count` of them run from the foot of a thick trunk
--- along the ground, each up to `length` blocks, the first block of each
--- two high.
-function kit:star(count, length)
+-- along the ground, each about `length` blocks. Next to the trunk a root
+-- stands `flare` blocks high and gets lower with every step, so that the
+-- trunk widens towards the ground. Some roots have a kink. Nothing grows
+-- out of a root.
+function kit:star(count, length, flare)
 	local ways = {{1, 0}, {-1, -1}, {0, 1}, {1, -1}, {-1, 0}, {1, 1}, {0, -1}, {-1, 1}}
 	for index = 1, math.min(count, #ways) do
 		local dx, dz = ways[index][1], ways[index][2]
 		local x, z = dx > 0 and 1 or 0, dz > 0 and 1 or 0
-		local long = math.max(1, math.floor(length * (0.6 + 0.6 * self:chance(index, 0, 9)) + 0.5))
+		local long = math.max(1, math.floor(length * (0.75 + 0.5 * self:chance(index, 0, 9)) + 0.5))
+		local kink = self:chance(index, 1, 9) < 0.5 and math.ceil(long / 2) + 1
 		for step = 1, long do
-			x, z = x + dx, z + dz
-			self:set(x, 0, z, "trunk")
-			if step == 1 then
-				self:set(x, 1, z, "trunk")
+			if step == kink then
+				-- One step to the side, then on as before.
+				if dx ~= 0 and dz ~= 0 then
+					x = x + dx
+					dz = 0
+				elseif dx ~= 0 then
+					z = z + (self:chance(index, 2, 9) < 0.5 and 1 or -1)
+				else
+					x = x + (self:chance(index, 2, 9) < 0.5 and 1 or -1)
+				end
+				self:set(x, 0, z, "trunk")
+				self.cells[key(x, 0, z)].root = true
 			end
+			x, z = x + dx, z + dz
+			for y = 0, math.max(0, (flare or 2) - step) do
+				self:set(x, y, z, "trunk")
+				self.cells[key(x, y, z)].root = true
+			end
+		end
+	end
+end
+
+-- Wood to a place: finds the nearest wood that is not a root and not
+-- higher than the place, and builds a limb from there, one block
+-- sideways or one up at a time, in steps like a stair. So every new limb
+-- forks off one that is there already, and none stands alone as a pole.
+function kit:reach(tx, ty, tz)
+	local from, best = nil, math.huge
+	for _, cell in pairs(self.cells) do
+		if cell.kind == "trunk" and not cell.root and cell.y <= ty then
+			local sideways = math.abs(cell.x - tx) + math.abs(cell.z - tz)
+			local far = sideways + (ty - cell.y) * 0.8
+			-- A limb should climb. One that would run level counts as
+			-- longer, so that wood further down is chosen.
+			if ty - cell.y < sideways * 0.45 then
+				far = far + (sideways * 0.45 - (ty - cell.y)) * 1.5
+			end
+			if far < best then
+				from, best = cell, far
+			end
+		end
+	end
+	if not from then
+		return
+	end
+	local x, y, z = from.x, from.y, from.z
+	local turn = 0
+	while x ~= tx or y ~= ty or z ~= tz do
+		local dx, dy, dz = tx - x, ty - y, tz - z
+		local sideways = math.abs(dx) + math.abs(dz)
+		-- Up and sideways in turn while both are left to go.
+		local up = dy > 0 and (sideways == 0 or turn % 2 == 1 and dy * 1.2 >= sideways or dy > sideways)
+		if up then
+			y = y + 1
+		elseif math.abs(dx) >= math.abs(dz) and dx ~= 0 then
+			x = x + (dx > 0 and 1 or -1)
+		elseif dz ~= 0 then
+			z = z + (dz > 0 and 1 or -1)
+		else
+			y = y + (dy > 0 and 1 or -1)
+		end
+		turn = turn + 1
+		self:set(x, y, z, "trunk")
+		-- Where a limb leaves the wood it is thicker: a block below its
+		-- first steps.
+		if turn <= 2 and y > 1 and not self:get(x, y - 1, z) then
+			self:set(x, y - 1, z, "trunk")
 		end
 	end
 end

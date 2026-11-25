@@ -19,6 +19,10 @@
 -- ground around its foot. tier adds one more tier of branches below the
 -- lowest one, no wider than it, and gives the tier above it more leaves.
 -- scale makes a form larger or, below 1, smaller.
+--
+-- study lists forms to look at closely: each stands alone, far from the
+-- rows, once whole and once as its wood without leaves, and the pictures
+-- show it from four sides, two corners and above.
 
 -- The species that are built by a way of their own, see species.lua. A
 -- form {species = "birch", age = 0.45} is such a tree at that age.
@@ -243,16 +247,18 @@ return {
 		leaves = "MT-T8",
 		category = "Hartholz",
 		planks = "EB33",
+		-- The tree the species is written after stands alone as well, whole
+		-- and as its wood, for pictures from all sides.
+		study = {{tree = "AO-T47", label = "AO-T47"}, {build = grown("oak", 1), label = "elder"}},
 		forms = {
 			{tree = "AO-T47", label = "Vorlage_gross"},
-			{build = grown("oak", 0.2), label = "klein"},
-			{build = grown("oak", 0.2), label = "klein_Variante", vary = 1},
-			{build = grown("oak", 0.4), label = "mittel"},
-			{build = grown("oak", 0.4), label = "mittel_Variante", vary = 1},
+			-- For now only the large form, to hold against the tree it is
+			-- written after, and the elder form with two variants. The
+			-- author wants the elder form right first.
 			{build = grown("oak", 0.7), label = "gross"},
-			{build = grown("oak", 0.7), label = "gross_Variante", vary = 1},
 			{build = grown("oak", 1), label = "elder"},
-			{build = grown("oak", 1), label = "elder_Variante", vary = 1},
+			{build = grown("oak", 1), label = "elder_Variante_1", vary = 1},
+			{build = grown("oak", 1), label = "elder_Variante_2", vary = 2},
 		},
 	},
 }

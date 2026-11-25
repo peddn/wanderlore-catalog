@@ -1055,6 +1055,10 @@ local function block_of(spec, kind)
 	return core.registered_nodes[spec] and spec or nil
 end
 
+-- Trees to study stand alone, far from everything, so that pictures from
+-- all sides show nothing but the tree.
+local STUDY_X, STUDY_Z, STUDY_GAP = -1500, -1000, 400
+
 local function lay_out_selection()
 	local path = core.get_modpath("wl_catalog") .. "/selection.lua"
 	local ok, list = pcall(dofile, path)
@@ -1062,9 +1066,66 @@ local function lay_out_selection()
 		core.log("warning", "[wl_catalog] selection.lua could not be read: " .. tostring(list))
 		return
 	end
-	local row = 0
+	local row, studies = 0, 0
 	for _, species in ipairs(list) do
 		local trunk, leaves = block_of(species.trunk, "trunk"), block_of(species.leaves, "leaves")
+
+		-- Makes the tree a form describes, without a place yet. With other
+		-- leaves than those of the species it serves a study.
+		local function make(form, index, with_leaves)
+			local chosen = {trunk = trunk, leaves = with_leaves,
+				hanging = form.hang and "wl_catalog:hanging_" .. species.name or nil}
+			local id = species.name:upper() .. "-" .. index
+			if form.build then
+				-- A form built in selection.lua itself.
+				local built, schematic = pcall(form.build, trunk, leaves, "wl_catalog:hanging_" .. species.name,
+					form.vary or 0)
+				if not built or type(schematic) ~= "table" then
+					core.log("warning", "[wl_catalog] selection " .. species.name .. ": form " ..
+						index .. " could not be built: " .. tostring(schematic))
+					return nil
+				end
+				return {id = id, shot_id = id, suffix = "", offset = 0,
+					source = {title = "Auswahl", prefix = "SEL", order = 0},
+					chosen = chosen,
+					label = form.label or "gebaut",
+					name = species.title .. " " .. (form.label or "gebaut"),
+					schematic = schematic,
+					w = schematic.size.x, h = schematic.size.y, d = schematic.size.z,
+					made = {trunk_node = trunk, leaves_node = leaves}}
+			end
+			local tree = plants.tree_by_id[form.tree]
+			if not tree then
+				core.log("warning", "[wl_catalog] selection " .. species.name .. ": no tree " .. tostring(form.tree))
+				return nil
+			end
+			local copy = setmetatable({copy_of = tree, suffix = " sel " .. species.name .. index,
+				chosen = chosen,
+				label = form.label or form.tree,
+				shot_id = id,
+				name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
+			-- In this order: longer trunk and roots, then the size,
+			-- then the slight changes of a variant.
+			if (form.vary or form.stretch or form.roots or form.scale or form.tier) and tree.schematic then
+				local schematic = tree.schematic
+				if form.stretch or form.roots or form.tier then
+					schematic = reshape(schematic, form.stretch or 0, form.roots, form.tier)
+				end
+				if form.scale and form.scale < 1 then
+					schematic = shrink(schematic, form.scale)
+				elseif form.scale then
+					schematic = enlarge(schematic, form.scale)
+				end
+				if form.vary then
+					schematic = vary(schematic, form.vary)
+				end
+				copy.schematic = schematic
+				copy.w, copy.h, copy.d = schematic.size.x, schematic.size.y, schematic.size.z
+				copy.offset = form.scale and math.floor(tree.offset * form.scale) or tree.offset
+			end
+			return copy
+		end
+
 		if not trunk or not leaves then
 			core.log("warning", "[wl_catalog] selection " .. species.name .. ": trunk or leaves not found")
 		else
@@ -1084,62 +1145,28 @@ local function lay_out_selection()
 			end
 			local x = 0
 			for index, form in ipairs(species.forms) do
-				local tree = plants.tree_by_id[form.tree]
-				if form.build then
-					-- A form built in selection.lua itself.
-					local ok, schematic = pcall(form.build, trunk, leaves, "wl_catalog:hanging_" .. species.name,
-						form.vary or 0)
-					if ok and type(schematic) == "table" then
-						local id = species.name:upper() .. "-" .. index
-						local copy = {z = z, id = id, shot_id = id, suffix = "", offset = 0,
-							source = {title = "Auswahl", prefix = "SEL", order = 0},
-							chosen = {trunk = trunk, leaves = leaves,
-								hanging = form.hang and "wl_catalog:hanging_" .. species.name or nil},
-							label = form.label or "gebaut",
-							name = species.title .. " " .. (form.label or "gebaut"),
-							schematic = schematic,
-							w = schematic.size.x, h = schematic.size.y, d = schematic.size.z,
-							made = {trunk_node = trunk, leaves_node = leaves}}
-						local slot = math.ceil(view_of(copy))
-						copy.x = x + math.floor(slot / 2)
-						x = x + slot
-						plants.selected[#plants.selected + 1] = copy
-					else
-						core.log("warning", "[wl_catalog] selection " .. species.name .. ": form " ..
-							index .. " could not be built: " .. tostring(schematic))
-					end
-				elseif not tree then
-					core.log("warning", "[wl_catalog] selection " .. species.name .. ": no tree " .. form.tree)
-				else
-					local copy = setmetatable({z = z, copy_of = tree, suffix = " sel " .. species.name .. index,
-						chosen = {trunk = trunk, leaves = leaves,
-							hanging = form.hang and "wl_catalog:hanging_" .. species.name or nil},
-						label = form.label or form.tree,
-						shot_id = species.name:upper() .. "-" .. index,
-						name = species.title .. " " .. (form.label or form.tree)}, {__index = tree})
-					-- In this order: longer trunk and roots, then the size,
-					-- then the slight changes of a variant.
-					if (form.vary or form.stretch or form.roots or form.scale or form.tier) and tree.schematic then
-						local schematic = tree.schematic
-						if form.stretch or form.roots or form.tier then
-							schematic = reshape(schematic, form.stretch or 0, form.roots, form.tier)
-						end
-						if form.scale and form.scale < 1 then
-							schematic = shrink(schematic, form.scale)
-						elseif form.scale then
-							schematic = enlarge(schematic, form.scale)
-						end
-						if form.vary then
-							schematic = vary(schematic, form.vary)
-						end
-						copy.schematic = schematic
-						copy.w, copy.h, copy.d = schematic.size.x, schematic.size.y, schematic.size.z
-						copy.offset = form.scale and math.floor(tree.offset * form.scale) or tree.offset
-					end
+				local copy = make(form, index, leaves)
+				if copy then
 					local slot = math.ceil(view_of(copy))
+					copy.z = z
 					copy.x = x + math.floor(slot / 2)
 					x = x + slot
 					plants.selected[#plants.selected + 1] = copy
+				end
+			end
+			-- A form to study stands twice: whole, and as its wood alone.
+			for index, form in ipairs(species.study or {}) do
+				for pass, with_leaves in ipairs({leaves, "air"}) do
+					local copy = make(form, "S" .. index .. (pass == 1 and "" or "H"), with_leaves)
+					if copy then
+						copy.suffix = copy.suffix .. " study" .. pass
+						copy.label = (form.label or form.tree or "Form") .. (pass == 1 and "_ganz" or "_Holz")
+						copy.study = true
+						copy.z = STUDY_Z
+						copy.x = STUDY_X - studies * STUDY_GAP
+						studies = studies + 1
+						plants.selected[#plants.selected + 1] = copy
+					end
 				end
 			end
 		end
@@ -2053,13 +2080,15 @@ local function shoot_selection(name, index)
 		local rows, by_z = {}, {}
 		for _, one in ipairs(plants.selected) do
 			local row = by_z[one.z]
-			if not row then
-				row = {first = one, height = 0}
-				by_z[one.z] = row
-				rows[#rows + 1] = row
+			if not one.study then
+				if not row then
+					row = {first = one, height = 0}
+					by_z[one.z] = row
+					rows[#rows + 1] = row
+				end
+				row.last = one
+				row.height = math.max(row.height, one.h)
 			end
-			row.last = one
-			row.height = math.max(row.height, one.h)
 		end
 		local function shoot_row(number)
 			local row = rows[number]
@@ -2085,6 +2114,38 @@ local function shoot_selection(name, index)
 	end
 	if tree.failed then
 		return shoot_selection(name, index + 1)
+	end
+	if tree.study then
+		-- A tree to study: from four sides, from two corners and from
+		-- above.
+		local middle = {x = tree.x + (tree.shift_x or 0), y = BASE_Y + math.max(tree.h + tree.offset, 2) / 2,
+			z = tree.z + (tree.shift_z or 0)}
+		local distance = 0.66 * view_of(tree) / (2 * HALF) + math.max(tree.w, tree.d) / 2
+		local views = {{"1_vorn", 0}, {"2_links", math.pi / 2}, {"3_hinten", math.pi}, {"4_rechts", 3 * math.pi / 2},
+			{"5_schraeg", math.pi / 4}, {"6_schraeg", 5 * math.pi / 4}, {"7_oben"}}
+		local function view(number)
+			local one = views[number]
+			if not one or not core.get_player_by_name(name) then
+				return shoot_selection(name, index + 1)
+			end
+			if one[2] then
+				player:set_pos({x = middle.x + math.sin(one[2]) * distance, y = middle.y - 1.625,
+					z = middle.z - math.cos(one[2]) * distance})
+				player:set_look_horizontal(one[2])
+				player:set_look_vertical(0)
+			else
+				player:set_pos({x = middle.x, y = middle.y + distance - 1.625, z = middle.z})
+				player:set_look_horizontal(0)
+				player:set_look_vertical(math.pi / 2)
+			end
+			core.after(number == 1 and 6 or 2.5, function()
+				shot("study " .. tree.shot_id .. " " .. tree.label:gsub("[^%w_.-]", "_") .. "_" .. one[1] ..
+					" " .. tree.w .. "x" .. tree.h)
+				core.after(1.0, view, number + 1)
+			end)
+		end
+		view(1)
+		return
 	end
 	local pos = viewpoint(tree)
 	pos.y = pos.y - 1.625

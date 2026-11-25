@@ -15,14 +15,15 @@ only="${1:-}"
 what="${2:-}"
 beds="$dev/shots-beds"
 selection="$dev/shots-selection"
+study="$dev/shots-study"
 
 if [ ! -f "$dev/worlds/plants/world.mt" ]; then
 	echo "No plants world yet. Run scripts/setup.sh first." >&2
 	exit 1
 fi
 
-rm -rf "$shots" "$beds" "$selection"
-mkdir -p "$shots" "$beds" "$selection" "$sheets" "$dev/home"
+rm -rf "$shots" "$beds" "$selection" "$study"
+mkdir -p "$shots" "$beds" "$selection" "$study" "$sheets" "$dev/home"
 ln -sfn "$dev" "$dev/home/.minetest"
 
 config="$dev/shots-plants.conf"
@@ -58,6 +59,7 @@ trap 'kill $luanti $xvfb 2>/dev/null || true' EXIT
 #   SHOT <number> bed <id> <name> <kind>
 #   SHOT <number> sel <id> <label> <width>x<height>
 #   SHOT <number> row <name> ...   all chosen forms side by side
+#   SHOT <number> study <id> <label>_<view> ...   a tree to study, from one side
 last=0
 while kill -0 "$luanti" 2>/dev/null; do
 	line="$(grep -o 'SHOT [0-9]* [a-z]* .*' "$dev/debug.txt" 2>/dev/null | tail -1 || true)"
@@ -68,6 +70,8 @@ while kill -0 "$luanti" 2>/dev/null; do
 			file="$sheets/blocks_$(echo "$line" | awk '{printf "%s_%02d", $4, $5}').png"
 		elif [ "$kind" = "row" ]; then
 			file="$sheets/selection_$(echo "$line" | awk '{print $4}')_row.png"
+		elif [ "$kind" = "study" ]; then
+			file="$study/$(echo "$line" | awk '{printf "%s_%s", $4, $5}').png"
 		elif [ "$kind" = "sel" ]; then
 			file="$selection/$(echo "$line" | awk '{printf "%04d %s %s %s", $2, $4, $5, $6}').png"
 		elif [ "$kind" = "bed" ]; then
