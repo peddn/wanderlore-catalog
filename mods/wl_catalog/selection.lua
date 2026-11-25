@@ -247,6 +247,7 @@ return {
 		leaves = "MT-T8",
 		category = "Hartholz",
 		planks = "EB33",
+		sapling = "BB15",
 		-- The tree the species is written after stands alone as well, whole
 		-- and as its wood, for pictures from all sides.
 		study = {{build = grown("oak", 1), label = "elder"}},
