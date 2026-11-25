@@ -273,13 +273,33 @@ return {
 		tinted_leaves = {texture = "moretrees_birch_leaves.png", change = "^[hsl:-25:30:22"},
 		category = "Weichholz",
 		planks = "EB25",
-		study = {{build = grown("maple", 1), label = "elder"}},
 		forms = {
 			{build = grown("maple", 0.2), label = "klein"},
 			{build = grown("maple", 0.4), label = "mittel"},
 			{build = grown("maple", 0.7), label = "gross"},
 			{build = grown("maple", 1), label = "elder"},
 			{build = grown("maple", 1), label = "elder_Variante", vary = 1},
+		},
+	},
+	{
+		-- Reed Meres. Chosen by the author on 2026-11-25: the trunk of the
+		-- willow of More Trees, the leaves of the willow of Extra Biomes in
+		-- a lighter green, and a photograph; he likes the form of ET-T22.
+		name = "willow",
+		title = "Weide",
+		trunk = "MT-T15",
+		leaves = "wl_catalog:leaves_willow",
+		tinted_leaves = {texture = "ebiomes_willow_leaves.png", change = "^[hsl:10:15:18"},
+		category = "Weichholz",
+		planks = "EB25",
+		study = {{build = grown("willow", 1), label = "elder"}},
+		forms = {
+			{tree = "ET-T22", label = "Vorlage_ET-T22"},
+			{build = grown("willow", 0.2), label = "klein"},
+			{build = grown("willow", 0.4), label = "mittel"},
+			{build = grown("willow", 0.7), label = "gross"},
+			{build = grown("willow", 1), label = "elder"},
+			{build = grown("willow", 1), label = "elder_Variante", vary = 1},
 		},
 	},
 }

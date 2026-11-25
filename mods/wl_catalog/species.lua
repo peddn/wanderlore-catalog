@@ -440,4 +440,69 @@ function species.maple(age, names, seed)
 	return tree:schematic()
 end
 
+--
+-- Willow
+--
+-- Written after a photograph of an old weeping willow the author gave and
+-- a tree of Ethereal in the catalogue whose form he likes, looked at from
+-- all sides, whole and as its wood alone.
+--
+--  * The trunk is short and thick, with roots lying around its foot, and
+--    forks low into a few arms that spread outwards and upwards.
+--  * The crown is a low dome, clearly wider than the tree is high: a
+--    thin cap of leaves on the ends of the arms.
+--  * From the whole rim of the cap, and from under it, leaves hang down
+--    as curtains nearly to the ground, each strand a different length.
+--    Behind them the tree is hollow, and trunk and arms show through.
+--
+-- Built back with age: lower and narrower, the trunk single, the arms
+-- fewer, and at last only a cap on a trunk with its curtain.
+
+species.stages.willow = {klein = 0.2, mittel = 0.4, gross = 0.7, elder = 1}
+
+function species.willow(age, names, seed)
+	-- The curtains are of the same leaves.
+	local tree = kit.new({trunk = names.trunk, leaves = names.leaves, hanging = names.leaves}, seed)
+	local height = round(6 + 12 * age)
+	local width = round(height * lerp(1.0, 1.4, age))
+	local stout = age > 0.5
+	local fork = math.max(3, round(height * 0.38))
+	-- A young willow keeps a stem up into its cap.
+	tree:stem(stout and fork or height - 3, stout and fork or 0)
+	if stout then
+		tree:star(round(lerp(4, 6, (age - 0.5) / 0.5)), 1.6, 2)
+	elseif age > 0.3 then
+		tree:roots(2)
+	end
+
+	-- The cap: flat tufts on a low dome above the fork.
+	local tuft = math.max(2.2, width * 0.17)
+	local across, upward = width / 2 - tuft * 0.7, height - fork - 2
+	local spin = tree:chance(2, 5, 0) * 2 * math.pi
+	local levels = stout and {0.3, 0.7} or {0.45}
+	for number, level in ipairs(levels) do
+		local ring = across * math.sqrt(1 - level * level)
+		local fit = math.max(3, round(2 * math.pi * ring / (tuft * 1.8)))
+		for index = 1, fit do
+			local turn = spin + number * 0.8 + (index + tree:chance(number, 5, index) * 0.4) * 2 * math.pi / fit
+			local x = round(math.cos(turn) * ring)
+			local z = round(math.sin(turn) * ring)
+			local y = round(fork + 1 + level * upward + tree:chance(number, 7, index) * 1.4 - 0.7)
+			if age > 0.3 then
+				tree:limb(0, fork, 0, x, y, z)
+			end
+			tree:ball(x, y + 1, z, tuft, tuft * 0.5)
+		end
+	end
+	tree:ball(0, height - 2, 0, tuft * 1.1, tuft * 0.5)
+	if not stout then
+		tree:ball(0, fork + 1 + upward * 0.5, 0, across * 0.7, upward * 0.5)
+	end
+
+	-- The curtains.
+	-- They end above the roots, and leave gaps to see the trunk through.
+	tree:strands(0.68, across * 0.3, round(height * 0.6), stout and 3 or 2)
+	return tree:schematic()
+end
+
 return species

@@ -246,8 +246,10 @@ local function inspect(schematic)
 		end
 	end
 	local best, most = nil, 0
+	-- With equal counts the name decides, so that a tree belongs to the
+	-- same source on every start.
 	for mod, number in pairs(mods) do
-		if number > most then
+		if number > most or number == most and mod < best then
 			best, most = mod, number
 		end
 	end
@@ -393,8 +395,16 @@ local function collect_trees()
 			return a.source.order < b.source.order
 		elseif a.name ~= b.name then
 			return a.name < b.name
+		elseif a.h ~= b.h then
+			return a.h < b.h
+		elseif a.w ~= b.w then
+			return a.w < b.w
+		elseif a.d ~= b.d then
+			return a.d < b.d
 		end
-		return a.h < b.h
+		-- Nothing may be left to chance here: the numbers have to be the
+		-- same on every start.
+		return (a.trunks or 0) < (b.trunks or 0)
 	end)
 	local count = {}
 	for _, entry in ipairs(list) do
